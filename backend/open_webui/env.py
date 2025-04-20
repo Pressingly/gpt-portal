@@ -503,5 +503,4 @@ EXTERNAL_PWA_MANIFEST_URL = os.environ.get("EXTERNAL_PWA_MANIFEST_URL")
 # MONETA
 ####################################
 
-SEND_TO_LITE_LLM = os.environ.get("SEND_TO_LITE_LLM", "true").lower() == "true"
 

@@ -25,7 +25,6 @@ from open_webui.env import (
     AIOHTTP_CLIENT_TIMEOUT_MODEL_LIST,
     ENABLE_FORWARD_USER_INFO_HEADERS,
     BYPASS_MODEL_ACCESS_CONTROL,
-    SEND_TO_LITE_LLM,
 )
 from open_webui.models.users import UserModel
 
@@ -663,10 +662,6 @@ async def generate_chat_completion(
             "email": user.email,
             "role": user.role,
         }
-    
-    # if env var SEND_TO_LITE_LLM is true, then attach the user_id to the payload
-    if SEND_TO_LITE_LLM:
-        payload["user"] = user.id
 
     url = request.app.state.config.OPENAI_API_BASE_URLS[idx]
     key = request.app.state.config.OPENAI_API_KEYS[idx]
