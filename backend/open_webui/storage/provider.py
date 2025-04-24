@@ -32,7 +32,7 @@ from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
 from azure.core.exceptions import ResourceNotFoundError
 from open_webui.env import SRC_LOG_LEVELS
-
+# Import MonetaS3StorageProvider lazily to avoid circular imports
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MAIN"])
@@ -328,7 +328,9 @@ def get_storage_provider(storage_provider: str):
     if storage_provider == "local":
         Storage = LocalStorageProvider()
     elif storage_provider == "s3":
-        Storage = S3StorageProvider()
+        # Import lazily to avoid circular imports
+        from open_webui.moneta.storage.moneta_s3_provider import MonetaS3StorageProvider
+        Storage = MonetaS3StorageProvider()
     elif storage_provider == "gcs":
         Storage = GCSStorageProvider()
     elif storage_provider == "azure":
