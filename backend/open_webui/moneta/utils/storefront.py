@@ -131,10 +131,12 @@ def save_storefront_token_to_cookies(response, user_data: dict, request):
     print(f"Storefront cookie set for domain {cookie_domain}")
     
     # I also want to set cookies['_medusa_callback_url'] to the current url
+    cleaned_netloc = request.url.netloc.strip('"')
+    callback_url_value = f"{request.url.scheme}://{cleaned_netloc}"
     response.set_cookie(
         key='_medusa_callback_url',
         # I want to to set value to the root domain of the current url without double quotes
-        value=f"{request.url.scheme}://{request.url.netloc.strip('\"')}",
+        value=callback_url_value,
         domain=cookie_domain,
         samesite='lax',
         path='/'
