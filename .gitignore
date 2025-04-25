@@ -316,3 +316,4 @@ backend/miniconda3*
 .cursor/rules/_*.mdc
 */vector_db/*
 */vector_db/.DS_Store
+.augment-guidelines
