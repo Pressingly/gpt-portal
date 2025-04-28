@@ -28,6 +28,7 @@
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Switch from '$lib/components/common/Switch.svelte';
 	import ChatBubbleOval from '$lib/components/icons/ChatBubbleOval.svelte';
+	import ModelInfo from '$lib/components/chat/ModelInfo.svelte';
 	import { goto } from '$app/navigation';
 
 	const i18n = getContext('i18n');
@@ -67,6 +68,10 @@
 
 	let ollamaVersion = null;
 	let selectedModelIdx = 0;
+
+	// Model info modal state
+	let showModelInfo = false;
+	let selectedModelInfoId = '';
 
 	const fuse = new Fuse(
 		items.map((item) => {
@@ -609,6 +614,33 @@
 									</Tooltip>
 								{/if}
 
+								<!-- Learn more button -->
+								<Tooltip content={$i18n.t('Learn more about this model')}>
+									<button
+										class="translate-y-[1px]"
+										on:click={(e) => {
+											e.stopPropagation(); // Prevent selecting the model
+											selectedModelInfoId = item.value;
+											showModelInfo = true;
+										}}
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke-width="1.5"
+											stroke="currentColor"
+											class="w-4 h-4"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"
+											/>
+										</svg>
+									</button>
+								</Tooltip>
+
 								{#if !$mobile && (item?.model?.tags ?? []).length > 0}
 									<div
 										class="flex gap-0.5 self-center items-center h-full translate-y-[0.5px] overflow-x-auto scrollbar-none"
@@ -787,3 +819,6 @@
 		</slot>
 	</DropdownMenu.Content>
 </DropdownMenu.Root>
+
+<!-- Model Info Modal -->
+<ModelInfo bind:show={showModelInfo} modelId={selectedModelInfoId} />

@@ -1,18 +1,31 @@
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from open_webui.models.models import (
     ModelForm,
     ModelModel,
     ModelResponse,
     ModelUserResponse,
+    ModelMeta,
     Models,
 )
 from open_webui.constants import ERROR_MESSAGES
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
 
 
 from open_webui.utils.auth import get_admin_user, get_verified_user
 from open_webui.utils.access_control import has_access, has_permission
+
+
+class ModelMetaUpdateForm(BaseModel):
+    """Form for updating model metadata"""
+    company: Optional[str] = None
+    tier: Optional[str] = None
+    pricing: Optional[Dict[str, Any]] = None
+    best_use_cases: Optional[str] = None
+    description: Optional[str] = None
+    profile_image_url: Optional[str] = None
+    capabilities: Optional[Dict[str, Any]] = None
 
 
 router = APIRouter()
@@ -201,3 +214,45 @@ async def delete_model_by_id(id: str, user=Depends(get_verified_user)):
 async def delete_all_models(user=Depends(get_admin_user)):
     result = Models.delete_all_models()
     return result
+
+
+############################
+# UpdateModelMetadata
+############################
+
+
+@router.post("/model/update-metadata", response_model=Optional[ModelModel])
+async def update_model_metadata(
+    id: str,
+    metadata: ModelMetaUpdateForm,
+    user=Depends(get_verified_user),
+):
+    """Update only the metadata of a model"""
+    model = Models.get_model_by_id(id)
+
+    if not model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERROR_MESSAGES.NOT_FOUND,
+        )
+
+    # Check permissions
+    if (
+        model.user_id != user.id
+        and not has_access(user.id, "write", model.access_control)
+        and user.role != "admin"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
+        )
+
+    # Update only the metadata
+    updated_model = Models.update_model_metadata(id, metadata)
+    if not updated_model:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=ERROR_MESSAGES.DEFAULT("Failed to update model metadata"),
+        )
+
+    return updated_model

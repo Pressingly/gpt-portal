@@ -197,6 +197,48 @@ export const updateModelById = async (token: string, id: string, model: object) 
 	return res;
 };
 
+/**
+ * Update only the metadata of a model
+ * @param token Authentication token
+ * @param id Model ID
+ * @param metadata Metadata to update (company, tier, pricing, best_use_cases, etc.)
+ * @returns Updated model
+ */
+export const updateModelMetadata = async (token: string, id: string, metadata: object) => {
+	let error = null;
+
+	const searchParams = new URLSearchParams();
+	searchParams.append('id', id);
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/models/model/update-metadata?${searchParams.toString()}`, {
+		method: 'POST',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify(metadata)
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return res.json();
+		})
+		.then((json) => {
+			return json;
+		})
+		.catch((err) => {
+			error = err;
+			console.log(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
 export const deleteModelById = async (token: string, id: string) => {
 	let error = null;
 

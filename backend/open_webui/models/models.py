@@ -44,6 +44,32 @@ class ModelMeta(BaseModel):
 
     capabilities: Optional[dict] = None
 
+    # Model information fields for cost and benefits display
+    company: Optional[str] = None
+    """
+        Company that created the model.
+    """
+
+    tier: Optional[str] = None
+    """
+        Tier classification (Standard, Value, Pro).
+    """
+
+    pricing: Optional[dict] = None
+    """
+        Pricing information with input and output token costs.
+        Format: {
+            "inputTokens": float,  # Cost per million input tokens in USD
+            "outputTokens": float, # Cost per million output tokens in USD
+            "requestPrice": float  # Optional price per 1,000 requests (for models like Perplexity)
+        }
+    """
+
+    best_use_cases: Optional[str] = None
+    """
+        Description of best use cases for this model.
+    """
+
     model_config = ConfigDict(extra="allow")
 
     pass
@@ -268,6 +294,39 @@ class ModelsTable:
                 return True
         except Exception:
             return False
+
+    def update_model_metadata(self, id: str, metadata_update) -> Optional[ModelModel]:
+        """Update only the metadata of a model"""
+        try:
+            with get_db() as db:
+                model = db.get(Model, id)
+                if not model:
+                    return None
+
+                # Get current metadata
+                current_meta = model.meta
+
+                # Update metadata fields
+                for field, value in metadata_update.model_dump(exclude_unset=True).items():
+                    if value is not None:  # Only update fields that are provided
+                        current_meta[field] = value
+
+                # Update the model
+                db.query(Model).filter_by(id=id).update(
+                    {
+                        "meta": current_meta,
+                        "updated_at": int(time.time()),
+                    }
+                )
+                db.commit()
+
+                # Get the updated model
+                model = db.get(Model, id)
+                db.refresh(model)
+                return ModelModel.model_validate(model)
+        except Exception as e:
+            log.exception(f"Failed to update model metadata for id {id}: {e}")
+            return None
 
 
 Models = ModelsTable()
