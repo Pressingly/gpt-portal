@@ -6,6 +6,7 @@ from open_webui.internal.db import Base, JSONField, get_db
 from open_webui.env import SRC_LOG_LEVELS
 
 from open_webui.models.users import Users, UserResponse
+from open_webui.utils.model_metadata import populate_model_metadata
 
 
 from pydantic import BaseModel, ConfigDict
@@ -172,6 +173,16 @@ class ModelsTable:
     def insert_new_model(
         self, form_data: ModelForm, user_id: str
     ) -> Optional[ModelModel]:
+        # Check if this is a base model (base_model_id is None)
+        if form_data.base_model_id is None:
+            # Populate metadata from master data for base models
+            meta_dict = form_data.meta.model_dump() if form_data.meta else {}
+            updated_meta = populate_model_metadata(form_data.id, meta_dict)
+
+            # Update the form data with the populated metadata
+            form_data.meta = ModelMeta.model_validate(updated_meta)
+            log.info(f"Populated metadata for base model {form_data.id}")
+
         model = ModelModel(
             **{
                 **form_data.model_dump(),
@@ -259,18 +270,24 @@ class ModelsTable:
 
     def update_model_by_id(self, id: str, model: ModelForm) -> Optional[ModelModel]:
         try:
+            # Check if this is a base model (base_model_id is None)
+            if model.base_model_id is None:
+                # Populate metadata from master data for base models
+                meta_dict = model.meta.model_dump() if model.meta else {}
+                updated_meta = populate_model_metadata(id, meta_dict)
+
+                # Update the model with the populated metadata
+                model.meta = ModelMeta.model_validate(updated_meta)
+                log.info(f"Populated metadata for base model {id} during update")
+
             with get_db() as db:
                 # update only the fields that are present in the model
-                result = (
-                    db.query(Model)
-                    .filter_by(id=id)
-                    .update(model.model_dump(exclude={"id"}))
-                )
+                db.query(Model).filter_by(id=id).update(model.model_dump(exclude={"id"}))
                 db.commit()
 
-                model = db.get(Model, id)
-                db.refresh(model)
-                return ModelModel.model_validate(model)
+                updated_model = db.get(Model, id)
+                db.refresh(updated_model)
+                return ModelModel.model_validate(updated_model)
         except Exception as e:
             log.exception(f"Failed to update the model by id {id}: {e}")
             return None

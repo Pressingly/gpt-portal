@@ -1,7 +1,5 @@
 <script lang="ts">
   import { getContext, onMount } from 'svelte';
-  import { fade } from 'svelte/transition';
-  import { getModelInfo, getAllModelInfo } from '$lib/config/model-info';
   import type { ModelInfo as ModelInfoType } from '$lib/types/model-info';
   import Modal from '$lib/components/common/Modal.svelte';
   import Tooltip from '$lib/components/common/Tooltip.svelte';
@@ -49,9 +47,6 @@
       error = true;
       loading = false;
       toast.error($i18n.t('Failed to load model information'));
-
-      // Fallback to static data
-      allModels = getAllModelInfo();
     }
   }
 
@@ -76,8 +71,9 @@
           additionalInfo: meta.additionalInfo || ''
         };
       } else {
-        // Fallback to static data if API doesn't have the info
-        modelInfo = getModelInfo(id);
+        // If API doesn't have the info, show error state
+        error = true;
+        toast.error($i18n.t('Model information not available'));
       }
 
       loading = false;
@@ -86,9 +82,6 @@
       error = true;
       loading = false;
       toast.error($i18n.t('Failed to load model information'));
-
-      // Fallback to static data
-      modelInfo = getModelInfo(id);
     }
   }
 
@@ -140,7 +133,7 @@
         <p class="text-gray-600 dark:text-gray-400">{$i18n.t('Compare costs and capabilities of available models')}</p>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {#each getAllModelInfo() as model}
+          {#each allModels as model}
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors shadow-sm">
               <div class="flex items-center justify-between mb-2">
                 <div>

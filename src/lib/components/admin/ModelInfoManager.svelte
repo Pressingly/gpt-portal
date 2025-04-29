@@ -1,8 +1,13 @@
 <script lang="ts">
   import { getContext, onMount } from 'svelte';
-  import { getModelInfo, getAllModelInfo, updateModelInfo, resetModelInfo } from '$lib/config/model-info';
   import type { ModelInfo } from '$lib/types/model-info';
-  import { getModels } from '$lib/apis/models';
+  import {
+    getModels,
+    getModelById,
+    updateModelMetadata,
+    refreshModelMetadata,
+    refreshAllMetadata
+  } from '$lib/apis/models';
   import { toast } from 'svelte-sonner';
 
   const i18n = getContext('i18n');
@@ -12,6 +17,9 @@
   let selectedModelId: string = '';
   let loading = true;
   let saving = false;
+  let refreshing = false;
+  let bulkRefreshing = false;
+  let forceUpdate = false;
 
   // Form fields
   let company = '';
@@ -23,74 +31,153 @@
   let bestUseCases = '';
   let additionalInfo = '';
 
-  // Fetch all models from the API
+  // Fetch models and populate the form
   async function fetchModels() {
     try {
       loading = true;
-
-      // Get models from the API
       const token = localStorage.token;
       const models = await getModels(token);
 
-      // Store all models
       allModels = models;
 
-      // Get models that don't have info yet
-      updateAvailableModels();
+      // Filter for base models only
+      availableModels = models.filter((model: any) => model.base_model_id === null);
 
       loading = false;
     } catch (err) {
       console.error('Error fetching models:', err);
-      loading = false;
       toast.error($i18n.t('Failed to load models'));
+      loading = false;
     }
-  }
-
-  // Update the list of available models
-  function updateAvailableModels() {
-    // Get all model info
-    const modelInfoList = getAllModelInfo();
-    const modelInfoIds = modelInfoList.map(info => info.id);
-
-    // Filter models that don't have info yet
-    availableModels = allModels.filter(model => !modelInfoIds.includes(model.id));
   }
 
   // Load model info when a model is selected
-  function loadModelInfo() {
+  async function loadModelInfo(id: string) {
+    if (!id) return;
+
+    try {
+      loading = true;
+      const token = localStorage.token;
+      const model = await getModelById(token, id);
+
+      if (model && model.meta) {
+        const meta = model.meta;
+        company = meta.company || '';
+        tier = meta.tier || 'Standard';
+        modelName = meta.name || model.name;
+        inputTokenPrice = meta.pricing?.inputTokens || 0;
+        outputTokenPrice = meta.pricing?.outputTokens || 0;
+        requestPrice = meta.pricing?.requestPrice || null;
+        bestUseCases = meta.best_use_cases || '';
+        additionalInfo = meta.additionalInfo || '';
+      } else {
+        // Reset form if no metadata
+        resetForm();
+        modelName = model.name || id;
+      }
+
+      loading = false;
+    } catch (err) {
+      console.error('Error loading model info:', err);
+      toast.error($i18n.t('Failed to load model information'));
+      loading = false;
+    }
+  }
+
+  // Save model info
+  async function saveModelInfo() {
     if (!selectedModelId) {
-      resetForm();
+      toast.error($i18n.t('Please select a model'));
       return;
     }
 
-    const info = getModelInfo(selectedModelId);
+    saving = true;
 
-    if (info) {
-      company = info.company || '';
-      tier = info.tier || 'Standard';
-      modelName = info.modelName || '';
-      inputTokenPrice = info.pricing?.inputTokens || 0;
-      outputTokenPrice = info.pricing?.outputTokens || 0;
-      requestPrice = info.pricing?.requestPrice || null;
-      bestUseCases = info.bestUseCases || '';
-      additionalInfo = info.additionalInfo || '';
-    } else {
-      // If no info exists, try to get the name from the model list
-      const model = allModels.find(m => m.id === selectedModelId);
-      if (model) {
-        modelName = model.name || selectedModelId;
-      } else {
-        modelName = selectedModelId;
+    try {
+      const token = localStorage.token;
+
+      // Create metadata object
+      const metadata = {
+        company,
+        tier,
+        name: modelName,
+        pricing: {
+          inputTokens: inputTokenPrice,
+          outputTokens: outputTokenPrice,
+          ...(requestPrice !== null ? { requestPrice } : {})
+        },
+        best_use_cases: bestUseCases,
+        ...(additionalInfo ? { additionalInfo } : {})
+      };
+
+      // Update model metadata
+      await updateModelMetadata(token, selectedModelId, metadata);
+
+      toast.success($i18n.t('Model information saved'));
+    } catch (err) {
+      console.error('Error saving model info:', err);
+      toast.error($i18n.t('Failed to save model information'));
+    } finally {
+      saving = false;
+    }
+  }
+
+  // Refresh model metadata from master data
+  async function refreshMetadata() {
+    if (!selectedModelId) {
+      toast.error($i18n.t('Please select a model'));
+      return;
+    }
+
+    refreshing = true;
+
+    try {
+      const token = localStorage.token;
+
+      // Refresh model metadata
+      await refreshModelMetadata(token, selectedModelId, forceUpdate);
+
+      // Reload model info
+      await loadModelInfo(selectedModelId);
+
+      toast.success($i18n.t('Model information refreshed'));
+    } catch (err) {
+      console.error('Error refreshing model info:', err);
+      toast.error($i18n.t('Failed to refresh model information'));
+    } finally {
+      refreshing = false;
+    }
+  }
+
+  // Refresh all model metadata
+  async function refreshAllModels() {
+    bulkRefreshing = true;
+
+    try {
+      const token = localStorage.token;
+
+      // Refresh all model metadata
+      const result = await refreshAllMetadata(token, forceUpdate);
+
+      // Reload current model if selected
+      if (selectedModelId) {
+        await loadModelInfo(selectedModelId);
       }
 
-      // Reset other fields
-      company = '';
-      tier = 'Standard';
-      inputTokenPrice = 0;
-      outputTokenPrice = 0;
-      requestPrice = null;
-      bestUseCases = '';
-      additionalInfo = '';
+      // Reload models list
+      await fetchModels();
+
+      toast.success(
+        $i18n.t('All models refreshed: {updated} updated, {skipped} unchanged', {
+          updated: result.updated,
+          skipped: result.skipped
+        })
+      );
+    } catch (err) {
+      console.error('Error refreshing all models:', err);
+      toast.error($i18n.t('Failed to refresh all models'));
+    } finally {
+      bulkRefreshing = false;
     }
   }
 
@@ -106,64 +193,13 @@
     additionalInfo = '';
   }
 
-  // Save model info
-  function saveModelInfo() {
-    if (!selectedModelId) {
-      toast.error($i18n.t('Please select a model'));
-      return;
-    }
-
-    saving = true;
-
-    try {
-      // Create model info object
-      const info: ModelInfo = {
-        company,
-        tier: tier as any,
-        modelName,
-        pricing: {
-          inputTokens: inputTokenPrice,
-          outputTokens: outputTokenPrice,
-          ...(requestPrice !== null ? { requestPrice } : {})
-        },
-        bestUseCases,
-        ...(additionalInfo ? { additionalInfo } : {})
-      };
-
-      // Update model info
-      updateModelInfo(selectedModelId, info);
-
-      // Update available models
-      updateAvailableModels();
-
-      toast.success($i18n.t('Model information saved'));
-    } catch (err) {
-      console.error('Error saving model info:', err);
-      toast.error($i18n.t('Failed to save model information'));
-    } finally {
-      saving = false;
-    }
-  }
-
-  // Reset all model info to defaults
-  function handleResetAll() {
-    if (confirm($i18n.t('Are you sure you want to reset all model information to defaults?'))) {
-      resetModelInfo();
-      updateAvailableModels();
-      resetForm();
-      selectedModelId = '';
-      toast.success($i18n.t('All model information reset to defaults'));
-    }
-  }
-
-  // Watch for changes to selectedModelId
-  $: if (selectedModelId) {
-    loadModelInfo();
-  }
-
   onMount(() => {
     fetchModels();
   });
+
+  $: if (selectedModelId) {
+    loadModelInfo(selectedModelId);
+  }
 </script>
 
 <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -185,24 +221,46 @@
           bind:value={selectedModelId}
         >
           <option value="">{$i18n.t('-- Select a model --')}</option>
-          <optgroup label={$i18n.t('Models with Information')}>
-            {#each getAllModelInfo() as model}
-              <option value={model.id}>{model.modelName} ({model.id})</option>
+          <optgroup label={$i18n.t('Base Models')}>
+            {#each availableModels as model}
+              <option value={model.id}>{model.name || model.id}</option>
             {/each}
           </optgroup>
-          {#if availableModels.length > 0}
-            <optgroup label={$i18n.t('Models without Information')}>
-              {#each availableModels as model}
-                <option value={model.id}>{model.name || model.id}</option>
-              {/each}
-            </optgroup>
-          {/if}
         </select>
+      </div>
+    </div>
+
+    <!-- Force update checkbox and refresh buttons -->
+    <div class="mb-6 flex flex-col gap-4">
+      <div class="flex items-center">
+        <input
+          type="checkbox"
+          id="force-update"
+          class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          bind:checked={forceUpdate}
+        />
+        <label for="force-update" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+          {$i18n.t('Force update (overwrite existing values)')}
+        </label>
+      </div>
+
+      <div class="flex gap-2">
+        {#if selectedModelId}
+          <button
+            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+            on:click={refreshMetadata}
+            disabled={refreshing}
+          >
+            {refreshing ? $i18n.t('Refreshing...') : $i18n.t('Refresh Selected Model')}
+          </button>
+        {/if}
+
         <button
-          class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-          on:click={handleResetAll}
+          class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50"
+          on:click={refreshAllModels}
+          disabled={bulkRefreshing}
         >
-          {$i18n.t('Reset All')}
+          {bulkRefreshing ? $i18n.t('Refreshing All...') : $i18n.t('Refresh All Models')}
         </button>
       </div>
     </div>

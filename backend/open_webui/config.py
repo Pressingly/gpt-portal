@@ -49,6 +49,7 @@ logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
 # Function to run the alembic migrations
 def run_migrations():
     log.info("Running migrations")
+    print("Running migrations")
     try:
         from alembic import command
         from alembic.config import Config

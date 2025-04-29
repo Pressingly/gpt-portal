@@ -305,3 +305,83 @@ export const deleteAllModels = async (token: string) => {
 
 	return res;
 };
+
+/**
+ * Refresh model metadata from master data
+ * @param token Authentication token
+ * @param id Model ID
+ * @param force If true, overwrite existing metadata values
+ * @returns Updated model
+ */
+export const refreshModelMetadata = async (token: string, id: string, force: boolean = false) => {
+	let error = null;
+
+	const searchParams = new URLSearchParams();
+	searchParams.append('id', id);
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/models/model/refresh-metadata?${searchParams.toString()}`, {
+		method: 'POST',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify({ force })
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return res.json();
+		})
+		.then((json) => {
+			return json;
+		})
+		.catch((err) => {
+			error = err;
+			console.log(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+/**
+ * Refresh metadata for all base models
+ * @param token Authentication token
+ * @param force If true, overwrite existing metadata values
+ * @returns Result summary with counts of updated, failed, and skipped models
+ */
+export const refreshAllMetadata = async (token: string, force: boolean = false) => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/models/refresh-all-metadata`, {
+		method: 'POST',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify({ force })
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return res.json();
+		})
+		.then((json) => {
+			return json;
+		})
+		.catch((err) => {
+			error = err;
+			console.log(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
