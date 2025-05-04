@@ -70,6 +70,23 @@ graph LR
     end
 ```
 
+## Component Descriptions
+
+| Component | Description | Key Responsibilities |
+|-----------|-------------|---------------------|
+| OpenWebUI Front | Web-based user interface | Provides chat interface, settings management, and document upload for RAG capabilities |
+| OpenWebUI Back | Backend API server | Handles authentication, manages conversations, routes queries to LLM services |
+| LiteLLM | LLM proxy/orchestration | Manages connections to various LLM providers, handles prompt formatting, maintains usage ledger, and performs entitlement checks |
+| Redis | In-memory data store | Caches responses, manages rate limiting, and supports streaming functionality |
+| Pipelines | Data processing workflows | Handles document processing for RAG, embedding generation, and other data transformation tasks |
+| Langfuse | Observability platform | Tracks model performance, logs prompts and completions, and provides analytics on model usage |
+| Adminer | Database management UI | Provides web interface for managing and querying the Postgres databases |
+| Lago | Billing service | Manages subscription verification, usage tracking, and generates billing information |
+| DB OpenWebui | OpenWebUI database | Stores user data, conversations, settings, and uploaded documents |
+| DB LiteLLM | LiteLLM database | Stores API keys, model configurations, and usage logs |
+| DB Langfuse | Langfuse database | Stores observability data, including traces, metrics, and model performance |
+| DB Lago | Lago database | Stores subscription information, billing records, and usage metrics |
+
 ## Project Structure (Key Components)
 ```
 /src/                # Frontend SvelteKit application source
@@ -143,5 +160,6 @@ This sequence ensures that:
 | 2024-07-13 | Added User Query Sequence Diagram with Entitlement | - | Added detailed sequence flow for query processing with subscription checks and billing. |
 | 2024-07-13 | Updated Sequence Diagram with Usage Ledger | - | Added step to record token usage in Ledger system. |
 | 2024-07-13 | Updated Sequence Diagram - Ledger as Internal Feature | - | Corrected diagram to show Usage Ledger as internal LiteLLM feature. |
+| 2024-07-13 | Added Component Descriptions | - | Added detailed descriptions of all system components and their responsibilities. |
 
 *For more detailed component interactions and features, please refer to the official OpenWebUI documentation.*
