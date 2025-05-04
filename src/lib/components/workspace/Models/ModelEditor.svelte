@@ -64,7 +64,14 @@
 			profile_image_url: '/static/favicon.png',
 			description: '',
 			suggestion_prompts: null,
-			tags: []
+			tags: [],
+			company: '',
+			tier: 'Standard',
+			best_use_cases: '',
+			pricing: {
+				inputTokens: 0,
+				outputTokens: 0
+			}
 		},
 		params: {
 			system: ''
@@ -231,14 +238,26 @@
 			});
 			capabilities = { ...capabilities, ...(model?.meta?.capabilities ?? {}) };
 
+			// Initialize model master data fields if this is a base model
+			if (model.base_model_id === null) {
+				info.meta.company = model?.meta?.company || '';
+				info.meta.tier = model?.meta?.tier || 'Standard';
+				info.meta.best_use_cases = model?.meta?.best_use_cases || '';
+
+				// Initialize pricing
+				if (model?.meta?.pricing) {
+					info.meta.pricing = {
+						inputTokens: model.meta.pricing.inputTokens || 0,
+						outputTokens: model.meta.pricing.outputTokens || 0
+					};
+				}
+			}
+
 			if ('access_control' in model) {
 				accessControl = model.access_control;
 			} else {
 				accessControl = {};
 			}
-
-			console.log(model?.access_control);
-			console.log(accessControl);
 
 			info = {
 				...info,
@@ -690,6 +709,76 @@
 					</div>
 
 					<hr class=" border-gray-100 dark:border-gray-850 my-1.5" />
+
+					{#if info.base_model_id === null}
+						<div class="my-2">
+							<div class="flex w-full justify-between">
+								<div class="self-center text-sm font-semibold">{$i18n.t('Model Master Data')}</div>
+							</div>
+
+							<div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+								<!-- Company -->
+								<div>
+									<div class="text-xs font-semibold mb-2">{$i18n.t('Company')}</div>
+									<input
+										class="text-sm w-full bg-transparent outline-hidden border border-gray-100 dark:border-gray-850 rounded-md px-3 py-2"
+										placeholder="OpenAI, Google, Anthropic, etc."
+										bind:value={info.meta.company}
+									/>
+								</div>
+
+								<!-- Tier -->
+								<div>
+									<div class="text-xs font-semibold mb-2">{$i18n.t('Tier')}</div>
+									<select
+										class="text-sm w-full bg-transparent outline-hidden border border-gray-100 dark:border-gray-850 rounded-md px-3 py-2"
+										bind:value={info.meta.tier}
+									>
+										<option value="Value">{$i18n.t('Value')}</option>
+										<option value="Standard">{$i18n.t('Standard')}</option>
+										<option value="Pro">{$i18n.t('Pro')}</option>
+									</select>
+								</div>
+
+								<!-- Input Token Price -->
+								<div>
+									<div class="text-xs font-semibold mb-2">{$i18n.t('Input Token Price (per 1M tokens)')}</div>
+									<input
+										type="number"
+										step="0.001"
+										min="0"
+										class="text-sm w-full bg-transparent outline-hidden border border-gray-100 dark:border-gray-850 rounded-md px-3 py-2"
+										bind:value={info.meta.pricing.inputTokens}
+									/>
+								</div>
+
+								<!-- Output Token Price -->
+								<div>
+									<div class="text-xs font-semibold mb-2">{$i18n.t('Output Token Price (per 1M tokens)')}</div>
+									<input
+										type="number"
+										step="0.001"
+										min="0"
+										class="text-sm w-full bg-transparent outline-hidden border border-gray-100 dark:border-gray-850 rounded-md px-3 py-2"
+										bind:value={info.meta.pricing.outputTokens}
+									/>
+								</div>
+							</div>
+
+							<!-- Best Use Cases -->
+							<div class="mt-4">
+								<div class="text-xs font-semibold mb-2">{$i18n.t('Best Use Cases')}</div>
+								<textarea
+									rows="3"
+									class="text-sm w-full bg-transparent outline-hidden border border-gray-100 dark:border-gray-850 rounded-md px-3 py-2"
+									placeholder="Describe the best use cases for this model..."
+									bind:value={info.meta.best_use_cases}
+								></textarea>
+							</div>
+						</div>
+
+						<hr class=" border-gray-100 dark:border-gray-850 my-1.5" />
+					{/if}
 
 					<div class="my-2">
 						<Knowledge bind:selectedKnowledge={knowledge} collections={$knowledgeCollections} />

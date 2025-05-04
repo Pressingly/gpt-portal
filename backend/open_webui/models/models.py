@@ -6,6 +6,7 @@ from open_webui.internal.db import Base, JSONField, get_db
 from open_webui.env import SRC_LOG_LEVELS
 
 from open_webui.models.users import Users, UserResponse
+from open_webui.utils.model_metadata import populate_model_metadata
 
 
 from pydantic import BaseModel, ConfigDict
@@ -43,6 +44,32 @@ class ModelMeta(BaseModel):
     """
 
     capabilities: Optional[dict] = None
+
+    # Model information fields for cost and benefits display
+    company: Optional[str] = None
+    """
+        Company that created the model.
+    """
+
+    tier: Optional[str] = None
+    """
+        Tier classification (Standard, Value, Pro).
+    """
+
+    pricing: Optional[dict] = None
+    """
+        Pricing information with input and output token costs.
+        Format: {
+            "inputTokens": float,  # Cost per million input tokens in USD
+            "outputTokens": float, # Cost per million output tokens in USD
+            "requestPrice": float  # Optional price per 1,000 requests (for models like Perplexity)
+        }
+    """
+
+    best_use_cases: Optional[str] = None
+    """
+        Description of best use cases for this model.
+    """
 
     model_config = ConfigDict(extra="allow")
 
@@ -146,6 +173,16 @@ class ModelsTable:
     def insert_new_model(
         self, form_data: ModelForm, user_id: str
     ) -> Optional[ModelModel]:
+        # Check if this is a base model (base_model_id is None)
+        if form_data.base_model_id is None:
+            # Populate metadata from master data for base models
+            meta_dict = form_data.meta.model_dump() if form_data.meta else {}
+            updated_meta = populate_model_metadata(form_data.id, meta_dict)
+
+            # Update the form data with the populated metadata
+            form_data.meta = ModelMeta.model_validate(updated_meta)
+            log.info(f"Populated metadata for base model {form_data.id}")
+
         model = ModelModel(
             **{
                 **form_data.model_dump(),
@@ -233,18 +270,24 @@ class ModelsTable:
 
     def update_model_by_id(self, id: str, model: ModelForm) -> Optional[ModelModel]:
         try:
+            # Check if this is a base model (base_model_id is None)
+            if model.base_model_id is None:
+                # Populate metadata from master data for base models
+                meta_dict = model.meta.model_dump() if model.meta else {}
+                updated_meta = populate_model_metadata(id, meta_dict)
+
+                # Update the model with the populated metadata
+                model.meta = ModelMeta.model_validate(updated_meta)
+                log.info(f"Populated metadata for base model {id} during update")
+
             with get_db() as db:
                 # update only the fields that are present in the model
-                result = (
-                    db.query(Model)
-                    .filter_by(id=id)
-                    .update(model.model_dump(exclude={"id"}))
-                )
+                db.query(Model).filter_by(id=id).update(model.model_dump(exclude={"id"}))
                 db.commit()
 
-                model = db.get(Model, id)
-                db.refresh(model)
-                return ModelModel.model_validate(model)
+                updated_model = db.get(Model, id)
+                db.refresh(updated_model)
+                return ModelModel.model_validate(updated_model)
         except Exception as e:
             log.exception(f"Failed to update the model by id {id}: {e}")
             return None
@@ -268,6 +311,39 @@ class ModelsTable:
                 return True
         except Exception:
             return False
+
+    def update_model_metadata(self, id: str, metadata_update) -> Optional[ModelModel]:
+        """Update only the metadata of a model"""
+        try:
+            with get_db() as db:
+                model = db.get(Model, id)
+                if not model:
+                    return None
+
+                # Get current metadata
+                current_meta = model.meta
+
+                # Update metadata fields
+                for field, value in metadata_update.model_dump(exclude_unset=True).items():
+                    if value is not None:  # Only update fields that are provided
+                        current_meta[field] = value
+
+                # Update the model
+                db.query(Model).filter_by(id=id).update(
+                    {
+                        "meta": current_meta,
+                        "updated_at": int(time.time()),
+                    }
+                )
+                db.commit()
+
+                # Get the updated model
+                model = db.get(Model, id)
+                db.refresh(model)
+                return ModelModel.model_validate(model)
+        except Exception as e:
+            log.exception(f"Failed to update model metadata for id {id}: {e}")
+            return None
 
 
 Models = ModelsTable()

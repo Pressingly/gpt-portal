@@ -4,14 +4,20 @@
 	import { toast } from 'svelte-sonner';
 	import Selector from './ModelSelector/Selector.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
+	import ModelInfo from './ModelInfo.svelte';
 
 	import { updateUserSettings } from '$lib/apis/users';
+	import { getAllModelInfo } from '$lib/config/model-info';
 	const i18n = getContext('i18n');
 
 	export let selectedModels = [''];
 	export let disabled = false;
 
 	export let showSetDefault = true;
+
+	// Model info modal state
+	let showAllModelsInfo = false;
+	let selectedModelInfoId = '';
 
 	const saveDefaultModel = async () => {
 		const hasEmptyModel = selectedModels.filter((it) => it === '');
@@ -114,7 +120,21 @@
 </div>
 
 {#if showSetDefault}
-	<div class=" absolute text-left mt-[1px] ml-1 text-[0.7rem] text-gray-500 font-primary">
-		<button on:click={saveDefaultModel}> {$i18n.t('Set as default')}</button>
+	<div class="flex justify-between w-full">
+		<div class="absolute text-left mt-[1px] ml-1 text-[0.7rem] text-gray-500 font-primary">
+			<button on:click={saveDefaultModel}> {$i18n.t('Set as default')}</button>
+		</div>
+		<div class="absolute text-right mt-[1px] right-1 text-[0.7rem] text-gray-500 font-primary">
+			<button
+				on:click={() => {
+					showAllModelsInfo = true;
+				}}
+			>
+				{$i18n.t('Learn more about each LLM')}
+			</button>
+		</div>
 	</div>
 {/if}
+
+<!-- Model Info Modal for all models -->
+<ModelInfo bind:show={showAllModelsInfo} modelId={selectedModelInfoId} />
