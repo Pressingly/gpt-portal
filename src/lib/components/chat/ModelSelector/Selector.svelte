@@ -511,30 +511,41 @@
 													class="rounded-full size-5 flex items-center mr-2"
 												/>
 
-												<div class="flex items-center line-clamp-1">
-													<div class="line-clamp-1">
-														{item.label}
+												<div class="flex flex-col">
+													<div class="flex items-center line-clamp-1">
+														<div class="line-clamp-1">
+															{item.label}
+														</div>
+
+														{#if item.model.owned_by === 'ollama' && (item.model.ollama?.details?.parameter_size ?? '') !== ''}
+															<div class="flex ml-1 items-center translate-y-[0.5px]">
+																<Tooltip
+																	content={`${
+																		item.model.ollama?.details?.quantization_level
+																			? item.model.ollama?.details?.quantization_level + ' '
+																			: ''
+																	}${
+																		item.model.ollama?.size
+																			? `(${(item.model.ollama?.size / 1024 ** 3).toFixed(1)}GB)`
+																			: ''
+																	}`}
+																	className="self-end"
+																>
+																	<span
+																		class=" text-xs font-medium text-gray-600 dark:text-gray-400 line-clamp-1"
+																		>{item.model.ollama?.details?.parameter_size ?? ''}</span
+																	>
+																</Tooltip>
+															</div>
+														{/if}
 													</div>
 
-													{#if item.model.owned_by === 'ollama' && (item.model.ollama?.details?.parameter_size ?? '') !== ''}
-														<div class="flex ml-1 items-center translate-y-[0.5px]">
-															<Tooltip
-																content={`${
-																	item.model.ollama?.details?.quantization_level
-																		? item.model.ollama?.details?.quantization_level + ' '
-																		: ''
-																}${
-																	item.model.ollama?.size
-																		? `(${(item.model.ollama?.size / 1024 ** 3).toFixed(1)}GB)`
-																		: ''
-																}`}
-																className="self-end"
-															>
-																<span
-																	class=" text-xs font-medium text-gray-600 dark:text-gray-400 line-clamp-1"
-																	>{item.model.ollama?.details?.parameter_size ?? ''}</span
-																>
-															</Tooltip>
+													<!-- Display estimated cost per query if pricing info is available -->
+													{#if item.model?.info?.meta?.pricing?.inputTokens || item.model?.info?.meta?.pricing?.outputTokens}
+														<div class="text-xs text-gray-500 dark:text-gray-400">
+															{$i18n.t('Est. cost per query')}:
+															${(((item.model?.info?.meta?.pricing?.inputTokens || 0) * 1000 / 1000000) +
+															((item.model?.info?.meta?.pricing?.outputTokens || 0) * 2000 / 1000000)).toFixed(4)}
 														</div>
 													{/if}
 												</div>

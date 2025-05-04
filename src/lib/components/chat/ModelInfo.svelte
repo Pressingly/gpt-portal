@@ -3,7 +3,8 @@
   import type { ModelInfo as ModelInfoType } from '$lib/types/model-info';
   import Modal from '$lib/components/common/Modal.svelte';
   import Tooltip from '$lib/components/common/Tooltip.svelte';
-  import { getModelById, getModels } from '$lib/apis/models';
+  import { getModelById } from '$lib/apis/models';
+  import { getModels } from '$lib/apis';
   import { toast } from 'svelte-sonner';
 
   const i18n = getContext('i18n');
@@ -73,7 +74,7 @@
       } else {
         // If API doesn't have the info, show error state
         error = true;
-        toast.error($i18n.t('Model information not available'));
+        toast.error($i18n.t('Model information not available 1111'));
       }
 
       loading = false;
@@ -81,7 +82,7 @@
       console.error('Error fetching model:', err);
       error = true;
       loading = false;
-      toast.error($i18n.t('Failed to load model information'));
+      toast.error($i18n.t('Failed to load model information 2222'));
     }
   }
 
@@ -109,6 +110,12 @@
     } else {
       return `$${price.toFixed(3)}`;
     }
+  }
+
+  // Calculate estimated cost per query based on token pricing
+  function calculateEstimatedCost(inputPrice: number, outputPrice: number, inputTokens: number = 1000, outputTokens: number = 2000): string {
+    const cost = (inputPrice * inputTokens / 1000000) + (outputPrice * outputTokens / 1000000);
+    return formatPrice(cost);
   }
 
   function getTierClass(tier: string): string {
@@ -162,6 +169,13 @@
                     <span class="font-medium text-gray-800 dark:text-gray-200">${model.pricing.requestPrice.toFixed(2)}</span>
                   </div>
                 {/if}
+                <!-- Estimated cost per query -->
+                <div class="flex justify-between text-sm mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/50">
+                  <span class="text-gray-600 dark:text-gray-400">{$i18n.t('Est. cost per query')}</span>
+                  <span class="font-medium text-gray-800 dark:text-gray-200">
+                    ${((model.pricing.inputTokens * 1000 / 1000000) + (model.pricing.outputTokens * 2000 / 1000000)).toFixed(4)}
+                  </span>
+                </div>
               </div>
 
               <div class="mt-3 text-sm text-gray-700 dark:text-gray-300 line-clamp-3 border-t border-gray-100 dark:border-gray-700/50 pt-2">
