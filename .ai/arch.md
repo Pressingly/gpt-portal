@@ -20,34 +20,55 @@ GPTPortal utilizes the Open WebUI platform, providing a web interface for intera
 | SQLite/Files| Data Storage (Default)         | Persists user data/configs via volume mount|
 
 ## Architecture Diagrams
-(High-level diagram to be added - illustrating Frontend -> Backend -> Ollama flow)
+(High-level diagram based on the provided image, including Lago)
 
 ```mermaid
-graph TD
-    subgraph User Browser
-        Frontend[SvelteKit UI]
+graph LR
+    subgraph User Interaction
+        direction LR
+        User((User))
+        ExternalSystems[...]
     end
 
-    subgraph Docker Environment
-        subgraph OpenWebUI Container
-            Backend[Python Backend API]
-            Frontend --> |HTTP API Calls| Backend
+    subgraph GPTPortal Instance
+        direction TB
+        OpenWebUIFront[OpenWebUI Front]
+        OpenWebUIBack[OpenWebUI Back]
+        LiteLLM
+        Redis
+        Pipelines
+        Langfuse
+        Adminer
+        Lago[Lago Billing]
+
+        subgraph InstancePostgres [Instance Postgres]
+            direction TB
+            DBOpenWebui[(DB OpenWebui)]
+            DBLiteLLM[(DB LiteLLM)]
+            DBLangfuse[(DB Langfuse)]
+            DBLago[(DB Lago)]
         end
 
-        subgraph Ollama Container
-            Ollama[Ollama Service]
-        end
+        User --> OpenWebUIFront
+        ExternalSystems --> OpenWebUIFront
+        OpenWebUIFront <--> OpenWebUIBack
+        OpenWebUIBack --> LiteLLM
+        OpenWebUIBack --> Pipelines
+        OpenWebUIBack --> DBOpenWebui
 
-        Backend --> |LLM API Calls| Ollama
+        LiteLLM <--> Redis
+        LiteLLM --> DBLiteLLM
+        LiteLLM --> Langfuse
+        LiteLLM --> OpenWebUIBack
+        LiteLLM --> |Billing/Credit Check| Lago
+
+        Lago --> DBLago
+
+        Langfuse --> DBLangfuse
+
+        InstancePostgres --> Adminer
     end
-
-    subgraph Persistent Storage
-        Volume[(Data Volume)]
-        Backend --> |Read/Write| Volume
-    end
-
 ```
-*Note: Diagram shows typical Docker Compose setup.*
 
 ## Project Structure (Key Components)
 ```
@@ -65,10 +86,62 @@ graph TD
 - User data, chat history, settings, RAG documents stored in the `/app/backend/data` volume within the `open-webui` container.
 - Specific schema details reside within the backend codebase (e.g., database models if using an ORM).
 
+## User Query with Entitlement Check Sequence
+
+The following diagram illustrates the flow of a user query through the system, including entitlement checking and usage-based billing:
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant OpenWebUI as OpenWebUI Frontend
+    participant Backend as OpenWebUI Backend
+    participant LiteLLM
+    participant Lago as Lago Billing
+    participant LLM as LLM Service
+
+    User->>OpenWebUI: Submit Query
+    OpenWebUI->>Backend: Forward Query
+    Backend->>LiteLLM: Process Query Request
+    
+    %% Entitlement Check
+    LiteLLM->>Lago: Check Entitlement (Subscription/Credits)
+    Lago-->>LiteLLM: Entitlement Status
+    
+    alt Entitlement Valid
+        LiteLLM->>LLM: Forward Query
+        LLM-->>LiteLLM: Stream Response Tokens
+        LiteLLM-->>Backend: Stream Tokens
+        Backend-->>OpenWebUI: Stream Tokens
+        OpenWebUI-->>User: Display Response Stream
+        
+        %% Usage Tracking and Billing
+        LLM->>LiteLLM: Chat Completion Event (Token Usage)
+        LiteLLM->>LiteLLM: Record Usage in Internal Ledger
+        LiteLLM->>Lago: Record Usage Event
+        Lago->>Lago: Process Billing/Update Credits
+    else Entitlement Invalid
+        LiteLLM-->>Backend: Entitlement Error
+        Backend-->>OpenWebUI: Error Message
+        OpenWebUI-->>User: Display Error/Upgrade Prompt
+    end
+```
+
+This sequence ensures that:
+1. User queries are validated against subscription status or available credits
+2. Only authorized and entitled queries are processed by the LLM
+3. Usage is accurately tracked and billed based on actual token consumption
+4. Users receive immediate feedback on entitlement issues
+
+*For more implementation details, refer to the LiteLLM and Lago integration documentation.*
+
 ## Change Log
 | Date        | Change                            | Story | Notes                                    |
 |-------------|-----------------------------------|-------|------------------------------------------|
 | $(date +%Y-%m-%d) | Initial Reverse Engineering       | -     | Draft architecture based on codebase analysis |
-| ...         | ...                               | ...   | ...                                      |
+| 2024-07-11 | Added Lago Billing & updated diagrams | -     | Integrated Lago for metric billing. |
+| 2024-07-11 | Added Entitlement Check Sequence Diagram | - | Detailed user query flow with checks. |
+| 2024-07-13 | Added User Query Sequence Diagram with Entitlement | - | Added detailed sequence flow for query processing with subscription checks and billing. |
+| 2024-07-13 | Updated Sequence Diagram with Usage Ledger | - | Added step to record token usage in Ledger system. |
+| 2024-07-13 | Updated Sequence Diagram - Ledger as Internal Feature | - | Corrected diagram to show Usage Ledger as internal LiteLLM feature. |
 
 *For more detailed component interactions and features, please refer to the official OpenWebUI documentation.*
