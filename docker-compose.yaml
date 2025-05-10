@@ -32,7 +32,9 @@ services:
       - 'DATABASE_POOL_RECYCLE=3600'
       - 'VECTOR_DB=pgvector'
       - 'PGVECTOR_DB_URL=postgresql://postgres:tdkhoi11t@host.docker.internal:5433/gpt-portal-vector'
-      - 'PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH=1536'  
+      - 'PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH=1536'
+      - 'VITE_POSTHOG_API_KEY=phc_NmZ475zYZkGW8hZYboYEAXzcLeF35fPnatNUThpFLVb'
+      - 'VITE_POSTHOG_HOST=https://app.posthog.com'
     extra_hosts:
       - host.docker.internal:host-gateway
     restart: unless-stopped

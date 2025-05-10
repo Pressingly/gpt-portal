@@ -1,0 +1,189 @@
+<script>
+	import { io } from 'socket.io-client';
+	import { spring } from 'svelte/motion';
+	import { writable } from 'svelte/store';
+	import PyodideWorker from '$lib/workers/pyodide.worker?worker';
+	import posthog, { setupSurveyCompletionHandler } from '$lib/posthog';
+	import FeedbackSurvey from '$lib/components/FeedbackSurvey.svelte';
+
+	let loadingProgress = spring(0, {
+		stiffness: 0.05
+	});
+
+	import { onMount, tick, setContext } from 'svelte';
+	import {
+		config,
+		user,
+		settings,
+		theme,
+		WEBUI_NAME,
+		mobile,
+		socket,
+		activeUserIds,
+		USAGE_POOL,
+		chatId,
+		chats,
+		currentChatPage,
+		tags,
+		temporaryChatEnabled,
+		isLastActiveTab,
+		isApp,
+		appInfo,
+		toolServers
+	} from '$lib/stores';
+	
+	// Add survey state
+	const surveyState = writable({
+		visible: false,
+		surveyId: null as string | null
+	});
+	
+	// Function to handle survey close
+	function handleSurveyClose() {
+		surveyState.update(state => ({ ...state, visible: false }));
+	}
+	
+	// Export functions to show/hide survey
+	export function showSurvey(id: string) {
+		surveyState.update(state => ({ ...state, visible: true, surveyId: id }));
+	}
+	
+	export function hideSurvey() {
+		surveyState.update(state => ({ ...state, visible: false }));
+	}
+	
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
+	import { Toaster, toast } from 'svelte-sonner';
+
+	import { executeToolServer, getBackendConfig } from '$lib/apis';
+	import { getSessionUser } from '$lib/apis/auths';
+
+	import '../tailwind.css';
+	import '../app.css';
+
+	import 'tippy.js/dist/tippy.css';
+
+	import { WEBUI_BASE_URL, WEBUI_HOSTNAME } from '$lib/constants';
+	import i18n, { initI18n, getLanguages, changeLanguage } from '$lib/i18n';
+	import { bestMatchingLanguage } from '$lib/utils';
+	import { getAllTags, getChatList } from '$lib/apis/chats';
+	import NotificationToast from '$lib/components/NotificationToast.svelte';
+	import AppSidebar from '$lib/components/app/AppSidebar.svelte';
+	import { chatCompletion } from '$lib/apis/openai';
+
+	setContext('i18n', i18n);
+
+	const bc = new BroadcastChannel('active-tab-channel');
+
+	let loaded = false;
+
+	const BREAKPOINT = 768;
+
+	const setupSocket = async (enableWebsocket) => {
+		const _socket = io(`${WEBUI_BASE_URL}` || undefined, {
+			reconnection: true,
+			reconnectionDelay: 1000,
+			reconnectionDelayMax: 5000,
+			randomizationFactor: 0.5,
+			path: '/ws/socket.io',
+			transports: enableWebsocket ? ['websocket'] : ['polling', 'websocket'],
+			auth: { token: localStorage.token }
+		});
+
+		await socket.set(_socket);
+
+		_socket.on('connect_error', (err) => {
+			console.log('connect_error', err);
+		});
+
+		_socket.on('connect', () => {
+			console.log('connected', _socket.id);
+		});
+
+		_socket.on('reconnect_attempt', (attempt) => {
+			console.log('reconnect_attempt', attempt);
+		});
+
+		_socket.on('reconnect_failed', () => {
+			console.log('reconnect_failed');
+		});
+
+		_socket.on('disconnect', (reason, details) => {
+			console.log(`Socket ${_socket.id} disconnected due to ${reason}`);
+			if (details) {
+				console.log('Additional details:', details);
+			}
+		});
+
+		_socket.on('user-list', (data) => {
+			console.log('user-list', data);
+			activeUserIds.set(data.user_ids);
+		});
+
+		_socket.on('usage', (data) => {
+			console.log('usage', data);
+			USAGE_POOL.set(data['models']);
+		});
+	};
+
+	// Rest of the script content...
+
+	onMount(async () => {
+		// Set up PostHog survey completion handler
+		// We'll wait a bit to make sure PostHog is initialized
+		setTimeout(() => {
+			try {
+				setupSurveyCompletionHandler();
+				console.log('PostHog survey completion handler set up');
+			} catch (error) {
+				console.error('Error setting up PostHog survey completion handler:', error);
+			}
+		}, 2000);
+
+		// Rest of the onMount function...
+	});
+</script>
+
+<svelte:head>
+	<title>{$WEBUI_NAME}</title>
+	<link crossorigin="anonymous" rel="icon" href="{WEBUI_BASE_URL}/static/favicon.png" />
+
+	<!-- rosepine themes have been disabled as it's not up to date with our latest version. -->
+	<!-- feel free to make a PR to fix if anyone wants to see it return -->
+	<!-- <link rel="stylesheet" type="text/css" href="/themes/rosepine.css" />
+	<link rel="stylesheet" type="text/css" href="/themes/rosepine-dawn.css" /> -->
+</svelte:head>
+
+{#if loaded}
+	{#if $isApp}
+		<div class="flex flex-row h-screen">
+			<AppSidebar />
+
+			<div class="w-full flex-1 max-w-[calc(100%-4.5rem)]">
+				<slot />
+			</div>
+		</div>
+	{:else}
+		<slot />
+	{/if}
+
+	<!-- Add the survey component -->
+	<FeedbackSurvey
+		visible={$surveyState.visible}
+		surveyId={$surveyState.surveyId || ''}
+		on:close={handleSurveyClose}
+	/>
+{/if}
+
+<Toaster
+	theme={$theme.includes('dark')
+		? 'dark'
+		: $theme === 'system'
+			? window.matchMedia('(prefers-color-scheme: dark)').matches
+				? 'dark'
+				: 'light'
+			: 'light'}
+	richColors
+	position="top-right"
+/>

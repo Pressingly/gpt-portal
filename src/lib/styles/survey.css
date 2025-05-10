@@ -1,0 +1,43 @@
+/* PostHog Survey Styling */
+.survey-box {
+  font-family: inherit;
+  color: inherit;
+}
+
+.survey-question {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.survey-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.survey-button {
+  background-color: var(--primary-color, #000);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.survey-button:hover {
+  opacity: 0.9;
+}
+
+.survey-footer-branding {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 1rem;
+}
+
+.survey-thank-you-message {
+  text-align: center;
+  padding: 2rem 0;
+}
