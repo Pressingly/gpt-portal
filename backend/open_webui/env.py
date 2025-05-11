@@ -105,11 +105,11 @@ for source in log_sources:
 
 log.setLevel(SRC_LOG_LEVELS["CONFIG"])
 
-WEBUI_NAME = os.environ.get("WEBUI_NAME", "GPT Portal")
-if WEBUI_NAME != "GPT Portal":
-    WEBUI_NAME = "GPT Portal"
+WEBUI_NAME = os.environ.get("WEBUI_NAME", "Askii")
+if WEBUI_NAME != "Askii":
+    WEBUI_NAME = "Askii"
 
-WEBUI_FAVICON_URL = "https://openwebui.com/favicon.png"
+WEBUI_FAVICON_URL = "https://askii.ai/favicon.png"
 
 TRUSTED_SIGNATURE_KEY = os.environ.get("TRUSTED_SIGNATURE_KEY", "")
 

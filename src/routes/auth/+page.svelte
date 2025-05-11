@@ -240,6 +240,17 @@
 								{/if}
 							</div>
 
+							<!-- Always show the subtitle and feature list after the heading -->
+							<div class="flex flex-col items-center justify-center mt-4 mb-6">
+								<div class="text-base font-medium text-blue-400 mb-2 text-center">Query multiple AI models with pay as you go pricing</div>
+								<ol class="text-base text-center text-gray-300 list-decimal list-inside space-y-1">
+									<li>Log in with Moneta/mPass</li>
+									<li>Query multiple AI models at once</li>
+									<li>Access specialized tools &amp; capabilities</li>
+									<li>Pay only for what you use</li>
+								</ol>
+							</div>
+
 							{#if $config?.features.enable_login_form || $config?.features.enable_ldap}
 								<div class="flex flex-col mt-4">
 									{#if mode === 'signup'}
