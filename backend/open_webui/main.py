@@ -442,7 +442,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="GPT Portal",
+    title="Askii",
     docs_url="/docs" if ENV == "dev" else None,
     openapi_url="/openapi.json" if ENV == "dev" else None,
     redoc_url=None,
@@ -1449,7 +1449,7 @@ async def get_manifest_json():
         return {
             "name": app.state.WEBUI_NAME,
             "short_name": app.state.WEBUI_NAME,
-            "description": "GPT Portal is a user-friendly interface for AI that adapts to your workflow.",
+            "description": "Askii is a user-friendly interface for AI that adapts to your workflow.",
             "start_url": "/",
             "display": "standalone",
             "background_color": "#343541",
