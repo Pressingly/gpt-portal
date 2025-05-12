@@ -1,7 +1,11 @@
 <script>
 	import { io } from 'socket.io-client';
 	import { spring } from 'svelte/motion';
+	import { writable } from 'svelte/store';
 	import PyodideWorker from '$lib/workers/pyodide.worker?worker';
+	import posthog, { setupSurveyCompletionHandler } from '$lib/posthog';
+	import { initializeSessionTracking } from '$lib/utils/session-manager';
+	import FeedbackSurvey from '$lib/components/FeedbackSurvey.svelte';
 
 	let loadingProgress = spring(0, {
 		stiffness: 0.05
@@ -28,6 +32,17 @@
 		appInfo,
 		toolServers
 	} from '$lib/stores';
+
+	// Add survey state
+	const surveyState = writable({
+		visible: false,
+		surveyId: ''
+	});
+
+	// Function to handle survey close
+	function handleSurveyClose() {
+		surveyState.update(state => ({ ...state, visible: false }));
+	}
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { Toaster, toast } from 'svelte-sonner';
@@ -433,6 +448,33 @@
 	};
 
 	onMount(async () => {
+		// Set up PostHog survey completion handler and session tracking
+		// We'll wait a bit to make sure PostHog is initialized
+		setTimeout(() => {
+			try {
+				// Set up survey completion handler
+				setupSurveyCompletionHandler();
+				console.log('PostHog survey completion handler set up');
+
+				// Initialize session tracking
+				initializeSessionTracking();
+				console.log('Session tracking initialized');
+			} catch (error) {
+				console.error('Error setting up PostHog integrations:', error);
+			}
+		}, 2000);
+
+		// Listen for the custom event to show the feedback survey
+		const handleShowFeedbackSurvey = (event) => {
+			const { surveyId } = event.detail;
+			if (surveyId) {
+				surveyState.update(state => ({ ...state, visible: true, surveyId }));
+				console.log('Showing feedback survey:', surveyId);
+			}
+		};
+
+		window.addEventListener('show-feedback-survey', handleShowFeedbackSurvey);
+
 		if (typeof window !== 'undefined' && window.applyTheme) {
 			window.applyTheme();
 		}
@@ -545,10 +587,25 @@
 
 					if (sessionUser) {
 						// Save Session User to Store
-						$socket.emit('user-join', { auth: { token: sessionUser.token } });
+						$socket?.emit('user-join', { auth: { token: sessionUser.token } });
 
 						await user.set(sessionUser);
 						await config.set(await getBackendConfig());
+
+						// Identify the user in PostHog
+						try {
+							if (posthog && typeof posthog.identify === 'function') {
+								posthog.identify(sessionUser.id);
+								posthog.people.set({
+									name: sessionUser.name,
+									email: sessionUser.email,
+									role: sessionUser.role
+								});
+								console.log('PostHog: User identified after login', sessionUser.id);
+							}
+						} catch (error) {
+							console.error('Error identifying user in PostHog after login:', error);
+						}
 					} else {
 						// Redirect Invalid Session User to /auth Page
 						localStorage.removeItem('token');
@@ -627,6 +684,13 @@
 	{:else}
 		<slot />
 	{/if}
+
+	<!-- Add the survey component -->
+	<FeedbackSurvey
+		visible={$surveyState.visible}
+		surveyId={$surveyState.surveyId}
+		on:close={handleSurveyClose}
+	/>
 {/if}
 
 <Toaster

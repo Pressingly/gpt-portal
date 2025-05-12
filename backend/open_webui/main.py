@@ -79,6 +79,7 @@ from open_webui.routers import (
     tools,
     users,
     utils,
+    user_stats,
 )
 
 from open_webui.routers.retrieval import (
@@ -93,6 +94,7 @@ from open_webui.models.functions import Functions
 from open_webui.models.models import Models
 from open_webui.models.users import UserModel, Users
 from open_webui.models.chats import Chats
+from open_webui.models.user_stats import UserStatsDB
 
 from open_webui.config import (
     LICENSE_KEY,
@@ -974,6 +976,7 @@ app.include_router(
     evaluations.router, prefix="/api/v1/evaluations", tags=["evaluations"]
 )
 app.include_router(utils.router, prefix="/api/v1/utils", tags=["utils"])
+app.include_router(user_stats.router, prefix="/api/v1/user_stats", tags=["user_stats"])
 
 
 try:
@@ -1156,6 +1159,13 @@ async def chat_completion(
 
     try:
         response = await chat_completion_handler(request, form_data, user)
+
+        # Increment the query count after successful completion
+        try:
+            UserStatsDB.increment_query_count(user.id)
+        except Exception as stats_error:
+            log.error(f"Error incrementing query count: {stats_error}")
+            # Don't fail the request if incrementing the query count fails
 
         return await process_chat_response(
             request, response, form_data, user, metadata, model, events, tasks
