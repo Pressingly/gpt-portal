@@ -1131,6 +1131,8 @@ async def chat_completion(
         request.state.metadata = metadata
         form_data["metadata"] = metadata
 
+        form_data["user"] = str(user.id)
+
         form_data, metadata, events = await process_chat_payload(
             request, form_data, user, metadata, model
         )
