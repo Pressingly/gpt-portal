@@ -65,6 +65,8 @@
 		updateChatById
 	} from '$lib/apis/chats';
 	import { generateOpenAIChatCompletion } from '$lib/apis/openai';
+	import { chatCompletionWithTracking } from '$lib/apis/chat_with_tracking';
+
 	import { processWeb, processWebSearch, processYoutubeVideo } from '$lib/apis/retrieval';
 	import { createOpenAITextStream } from '$lib/apis/streaming';
 	import { queryMemory } from '$lib/apis/memories';
@@ -1567,7 +1569,7 @@
 			}))
 			.filter((message) => message?.role === 'user' || message?.content?.trim());
 
-		const res = await generateOpenAIChatCompletion(
+		const res = await chatCompletionWithTracking(
 			localStorage.token,
 			{
 				stream: stream,
