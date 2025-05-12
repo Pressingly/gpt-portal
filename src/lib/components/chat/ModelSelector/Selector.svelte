@@ -24,6 +24,7 @@
 	import { toast } from 'svelte-sonner';
 	import { capitalizeFirstLetter, sanitizeResponseContent, splitStream } from '$lib/utils';
 	import { getModels } from '$lib/apis';
+	import { trackModelSelection, trackMultiModelSelection } from '$lib/posthog';
 
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Switch from '$lib/components/common/Switch.svelte';
@@ -479,9 +480,18 @@
 						data-arrow-selected={index === selectedModelIdx}
 						data-value={item.value}
 						on:click={() => {
+							// Track model selection in PostHog
+							const modelProvider = item.model?.owned_by || 'unknown';
+							trackModelSelection(item.value, modelProvider, 'chat');
+
+							// Update selected model
 							value = item.value;
 							selectedModelIdx = index;
 
+							// Dispatch change event
+							dispatch('change', item.value);
+
+							// Close dropdown
 							show = false;
 						}}
 					>

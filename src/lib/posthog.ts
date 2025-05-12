@@ -1,6 +1,13 @@
 import posthog from 'posthog-js';
 import { browser } from '$app/environment';
 
+/**
+ * PostHog integration for GPT Portal analytics
+ *
+ * This module provides functions for tracking events in PostHog,
+ * including user queries, model usage, and session metrics.
+ */
+
 // We'll use type assertions to work around TypeScript limitations
 
 // Initialize PostHog only in the browser
@@ -50,13 +57,30 @@ if (browser) {
   }
 }
 
-// Utility function to safely capture events
+/**
+ * Safely capture events in PostHog
+ * @param eventName Name of the event to capture
+ * @param properties Properties to include with the event
+ */
 export const captureEvent = (eventName: string, properties?: Record<string, any>) => {
   if (browser) {
     try {
       // Check if PostHog is initialized before capturing events
       if ((posthog as any).__loaded) {
-        posthog.capture(eventName, properties);
+        // Add timestamp if not provided
+        const eventProperties: Record<string, any> = {
+          ...properties,
+          timestamp: properties?.timestamp || new Date().toISOString()
+        };
+
+        // Add session_id if available and not provided
+        if (localStorage.getItem('session_id') && !eventProperties.session_id) {
+          eventProperties.session_id = localStorage.getItem('session_id');
+        }
+
+        // Capture the event
+        posthog.capture(eventName, eventProperties);
+        console.log(`PostHog event captured: ${eventName}`);
       } else {
         console.warn(`PostHog event not captured (not initialized): ${eventName}`);
       }
@@ -64,6 +88,120 @@ export const captureEvent = (eventName: string, properties?: Record<string, any>
       console.error('Error capturing PostHog event:', error);
     }
   }
+};
+
+/**
+ * Track a query submission
+ * @param modelId ID of the primary model used
+ * @param additionalModels Array of additional models if multi-LLM query
+ * @param chatId ID of the chat
+ * @param messageId ID of the message
+ */
+export const trackQuerySubmission = (
+  modelId: string,
+  additionalModels: string[] = [],
+  chatId: string = 'unknown',
+  messageId: string = 'unknown'
+) => {
+  const userId = localStorage.getItem('user_id');
+  const isMultiLlm = additionalModels.length > 0;
+
+  captureEvent('query_submitted', {
+    user_id: userId,
+    model_id: modelId,
+    additional_models: additionalModels,
+    is_multi_llm: isMultiLlm,
+    chat_id: chatId,
+    message_id: messageId,
+    query_type: 'chat_completion'
+  });
+};
+
+/**
+ * Track a query completion
+ * @param modelId ID of the primary model used
+ * @param additionalModels Array of additional models if multi-LLM query
+ * @param inputTokens Number of input tokens
+ * @param outputTokens Number of output tokens
+ * @param queryCost Cost of the query
+ * @param totalDuration Total duration of the query in ms
+ * @param chatId ID of the chat
+ * @param messageId ID of the message
+ * @param status Completion status ('success' or 'failure')
+ * @param errorType Type of error if status is 'failure'
+ */
+export const trackQueryCompletion = (
+  modelId: string,
+  additionalModels: string[] = [],
+  inputTokens: number = 0,
+  outputTokens: number = 0,
+  queryCost: number = 0,
+  totalDuration: number = 0,
+  chatId: string = 'unknown',
+  messageId: string = 'unknown',
+  status: 'success' | 'failure' = 'success',
+  errorType: string = ''
+) => {
+  const userId = localStorage.getItem('user_id');
+  const isMultiLlm = additionalModels.length > 0;
+
+  captureEvent('query_completed', {
+    user_id: userId,
+    model_id: modelId,
+    additional_models: additionalModels,
+    is_multi_llm: isMultiLlm,
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    total_tokens: inputTokens + outputTokens,
+    query_cost: queryCost,
+    completion_status: status,
+    error_type: errorType,
+    total_duration: totalDuration,
+    chat_id: chatId,
+    message_id: messageId
+  });
+};
+
+/**
+ * Track model selection
+ * @param modelId ID of the selected model
+ * @param modelProvider Provider of the model
+ * @param context Context where the selection happened
+ */
+export const trackModelSelection = (
+  modelId: string,
+  modelProvider: string = 'unknown',
+  context: string = 'chat'
+) => {
+  const userId = localStorage.getItem('user_id');
+
+  captureEvent('model_selected', {
+    user_id: userId,
+    model_id: modelId,
+    model_provider: modelProvider,
+    context: context
+  });
+};
+
+/**
+ * Track multi-model selection
+ * @param modelIds Array of selected model IDs
+ * @param modelProviders Array of model providers
+ * @param context Context where the selection happened
+ */
+export const trackMultiModelSelection = (
+  modelIds: string[],
+  modelProviders: string[] = [],
+  context: string = 'chat'
+) => {
+  const userId = localStorage.getItem('user_id');
+
+  captureEvent('multi_model_selected', {
+    user_id: userId,
+    model_ids: modelIds,
+    model_providers: modelProviders.length === modelIds.length ? modelProviders : modelIds.map(() => 'unknown'),
+    context: context
+  });
 };
 
 // Function to check and trigger feedback survey

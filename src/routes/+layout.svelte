@@ -4,6 +4,7 @@
 	import { writable } from 'svelte/store';
 	import PyodideWorker from '$lib/workers/pyodide.worker?worker';
 	import posthog, { setupSurveyCompletionHandler } from '$lib/posthog';
+	import { initializeSessionTracking } from '$lib/utils/session-manager';
 	import FeedbackSurvey from '$lib/components/FeedbackSurvey.svelte';
 
 	let loadingProgress = spring(0, {
@@ -447,14 +448,19 @@
 	};
 
 	onMount(async () => {
-		// Set up PostHog survey completion handler
+		// Set up PostHog survey completion handler and session tracking
 		// We'll wait a bit to make sure PostHog is initialized
 		setTimeout(() => {
 			try {
+				// Set up survey completion handler
 				setupSurveyCompletionHandler();
 				console.log('PostHog survey completion handler set up');
+
+				// Initialize session tracking
+				initializeSessionTracking();
+				console.log('Session tracking initialized');
 			} catch (error) {
-				console.error('Error setting up PostHog survey completion handler:', error);
+				console.error('Error setting up PostHog integrations:', error);
 			}
 		}, 2000);
 
