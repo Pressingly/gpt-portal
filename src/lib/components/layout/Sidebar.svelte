@@ -609,6 +609,43 @@
 			</div>
 		{/if}
 
+		<div class="px-1.5 flex justify-center text-gray-800 dark:text-gray-200">
+			<a
+				class="grow flex items-center space-x-3 rounded-lg px-2 py-[7px] hover:bg-gray-100 dark:hover:bg-gray-900 transition"
+				href="/workspace/query-history"
+				on:click={() => {
+					selectedChatId = null;
+					chatId.set('');
+
+					if ($mobile) {
+						showSidebar.set(false);
+					}
+				}}
+				draggable="false"
+			>
+				<div class="self-center">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke-width="2"
+						stroke="currentColor"
+						class="size-[1.1rem]"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+						/>
+					</svg>
+				</div>
+
+				<div class="flex self-center translate-y-[0.5px]">
+					<div class="self-center font-medium text-sm font-primary">{$i18n.t('Query History')}</div>
+				</div>
+			</a>
+		</div>
+
 		<div class="relative {$temporaryChatEnabled ? 'opacity-20' : ''}">
 			{#if $temporaryChatEnabled}
 				<div class="absolute z-40 w-full h-full flex justify-center"></div>
