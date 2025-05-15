@@ -31,7 +31,7 @@ def storefront_redirect_url() -> str:
     if not STOREFRONT_URL:
         # Adjust the default path if needed
         return '/subscriptions'
-    return f"{STOREFRONT_URL}/plan"
+    return f"{STOREFRONT_URL}/us/embed/plans"
 
 
 def _encode_jwe(payload: dict, secret_key_b64: str) -> str:
