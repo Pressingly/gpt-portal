@@ -2,13 +2,15 @@
   import { onMount } from 'svelte';
   import { getQueryHistory, type QueryHistoryItem } from '$lib/apis/query_history';
   import { getToken } from '$lib/utils/auth';
+  import { page } from '$app/stores';
 
   let history: QueryHistoryItem[] = [];
   let loading = true;
   let error = '';
-  let page = 1;
+  let currentPage = 1;
   let pageSize = 8;
   let totalPages = 1;
+  let remainingBalance = 'Loading...';
 
   function formatTimestamp(timestamp: string): string {
     try {
@@ -35,7 +37,7 @@
     try {
       const token = await getToken();
       console.log('Got token:', token ? 'Token exists' : 'No token');
-      const data = await getQueryHistory(token, page, pageSize);
+      const data = await getQueryHistory(token, currentPage, pageSize);
       console.log('Query history response:', data);
       history = data.items;
       totalPages = data.total_pages;
@@ -48,25 +50,68 @@
   }
 
   function prevPage() {
-    if (page > 1) {
-      page--;
+    if (currentPage > 1) {
+      currentPage--;
       fetchHistory();
     }
   }
 
   function nextPage() {
-    if (page < totalPages) {
-      page++;
+    if (currentPage < totalPages) {
+      currentPage++;
       fetchHistory();
+    }
+  }
+
+  async function fetchRemainingBalance() {
+    const myHeaders = new Headers();
+    myHeaders.append("Content-Type", "application/json");
+    myHeaders.append("Authorization", "Bearer 3d8aaaa1-1ae8-4bc0-94fe-0a952adb3c18");
+    const requestOptions = {
+      method: "GET",
+      headers: myHeaders,
+      redirect: "follow"
+    };
+    try {
+      const userId = $page.data.user?.id;
+      if (!userId) {
+        throw new Error("User ID not found");
+      }
+
+      // First, get all subscriptions
+      const subscriptionsResponse = await fetch(`https://gpt-portal-lagoapi.sandbox.pressingly.net/api/v1/subscriptions?external_customer_id=${userId}&page=1`, requestOptions);
+      const subscriptionsData = await subscriptionsResponse.json();
+      
+      // Get the first subscription
+      const firstSubscription = subscriptionsData.subscriptions[0];
+      if (!firstSubscription) {
+        throw new Error("No subscription found");
+      }
+      // Use the subscription ID to get the balance
+      const balanceResponse = await fetch(`https://gpt-portal-lagoapi.sandbox.pressingly.net/api/v1/customers/${userId}/current_usage?external_subscription_id=${firstSubscription.external_id}`, requestOptions);
+      const balanceData = await balanceResponse.json();
+      
+      // Calculate remaining balance
+      const totalSucceededAmount = balanceData.customer_usage.total_succeeded_amount_cents;
+      const usedUnits = parseFloat(balanceData.customer_usage.charges_usage[0].units);
+      const remainingBalanceCents = totalSucceededAmount - usedUnits;
+      const balanceInDollars = remainingBalanceCents / 100; // Convert cents to dollars
+      
+      remainingBalance = `Remaining Balance: $${balanceInDollars.toFixed(2)}`;
+    } catch (error) {
+      console.error(error);
+      remainingBalance = "Error fetching balance";
     }
   }
 
   onMount(() => {
     fetchHistory();
+    fetchRemainingBalance();
   });
 </script>
 
 <h1 class="text-2xl font-bold mb-4">Query History</h1>
+<div class="text-lg font-semibold mb-4">{remainingBalance}</div>
 
 {#if loading}
   <div class="py-8 text-center text-gray-500">Loading...</div>
@@ -107,9 +152,9 @@
       </tbody>
     </table>
     <div class="flex items-center justify-between p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
-      <button class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-50" on:click={prevPage} disabled={page === 1}>Previous</button>
-      <span>Page {page} of {totalPages}</span>
-      <button class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-50" on:click={nextPage} disabled={page === totalPages}>Next</button>
+      <button class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-50" on:click={prevPage} disabled={currentPage === 1}>Previous</button>
+      <span>Page {currentPage} of {totalPages}</span>
+      <button class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-50" on:click={nextPage} disabled={currentPage === totalPages}>Next</button>
     </div>
   </div>
 {/if}

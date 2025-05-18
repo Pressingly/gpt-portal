@@ -1120,6 +1120,7 @@ async def chat_completion(
             "files": form_data.get("files", None),
             "features": form_data.get("features", None),
             "variables": form_data.get("variables", None),
+            "messages": form_data.get("messages", []),
             "model": model,
             "direct": model_item.get("direct", False),
             **(
