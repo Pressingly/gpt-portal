@@ -3,6 +3,7 @@
   import { getQueryHistory, type QueryHistoryItem } from '$lib/apis/query_history';
   import { getToken } from '$lib/utils/auth';
   import { page } from '$app/stores';
+  import { user } from '$lib/stores';
 
   let history: QueryHistoryItem[] = [];
   let loading = true;
@@ -73,23 +74,36 @@
       redirect: "follow"
     };
     try {
-      const userId = $page.data.user?.id;
+      // Get user ID from auth session
+      const userId = $user?.id;
+      
       if (!userId) {
-        throw new Error("User ID not found");
+        throw new Error("User ID not found in auth session");
       }
+      
+      console.log('User ID from auth:', userId);
 
       // First, get all subscriptions
-      const subscriptionsResponse = await fetch(`https://gpt-portal-lagoapi.sandbox.pressingly.net/api/v1/subscriptions?external_customer_id=${userId}&page=1`, requestOptions);
+      const subscriptionsUrl = `https://gpt-portal-lagoapi.sandbox.pressingly.net/api/v1/subscriptions?external_customer_id=${userId}&page=1`;
+      console.log('Fetching subscriptions from:', subscriptionsUrl);
+      
+      const subscriptionsResponse = await fetch(subscriptionsUrl, requestOptions);
       const subscriptionsData = await subscriptionsResponse.json();
+      console.log('Subscriptions response:', subscriptionsData);
       
       // Get the first subscription
       const firstSubscription = subscriptionsData.subscriptions[0];
       if (!firstSubscription) {
         throw new Error("No subscription found");
       }
+
       // Use the subscription ID to get the balance
-      const balanceResponse = await fetch(`https://gpt-portal-lagoapi.sandbox.pressingly.net/api/v1/customers/${userId}/current_usage?external_subscription_id=${firstSubscription.external_id}`, requestOptions);
+      const balanceUrl = `https://gpt-portal-lagoapi.sandbox.pressingly.net/api/v1/customers/${userId}/current_usage?external_subscription_id=${firstSubscription.external_id}`;
+      console.log('Fetching balance from:', balanceUrl);
+      
+      const balanceResponse = await fetch(balanceUrl, requestOptions);
       const balanceData = await balanceResponse.json();
+      console.log('Balance response:', balanceData);
       
       // Calculate remaining balance
       const totalSucceededAmount = balanceData.customer_usage.total_succeeded_amount_cents;
@@ -99,7 +113,7 @@
       
       remainingBalance = `Remaining Balance: $${balanceInDollars.toFixed(2)}`;
     } catch (error) {
-      console.error(error);
+      console.error('Error in fetchRemainingBalance:', error);
       remainingBalance = "Error fetching balance";
     }
   }
