@@ -113,7 +113,6 @@ def get_user_subscriptions(user_external_id, status=None):
             timeout=10
         )
         response.raise_for_status()
-        import pdb; pdb.set_trace()
 
         logger.info(f"Successfully retrieved subscriptions for customer {user_external_id}")
         return response.json().get("subscriptions", [])

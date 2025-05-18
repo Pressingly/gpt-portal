@@ -228,6 +228,7 @@ async def speech(request: Request, user=Depends(get_verified_user)):
                             "X-OpenWebUI-User-Id": user.id,
                             "X-OpenWebUI-User-Email": user.email,
                             "X-OpenWebUI-User-Role": user.role,
+                            "X-OpenWebUI-User-Subscription": user.settings.get("subscription", {}).get("default_subscription_id", None),
                         }
                         if ENABLE_FORWARD_USER_INFO_HEADERS
                         else {}
