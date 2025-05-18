@@ -1,0 +1,31 @@
+---
+description: When working with subscription
+globs: 
+alwaysApply: false
+---
+
+# Subscription
+Subscription or Lago subscription is a module that work with user subscriptions. A subscription is created when user subscribe to one or many plans in storefront page. User can have many active subscriptions as the same time.
+
+# Flow of subscription
+After login to Askii.ai, user will be assigned to a trial plan which create a trial subscription. For now, each subscription will provide a number of credit that customer can use it to perform queries. All the subscription will be stored on Lago and Lago is the single source of trust.
+
+## Subscribe a plan flow
+- Open the storefront (medusa).
+- Storefront will list all plans from Lago
+- Click subscribe on storefront. Storefront will create/cancel subscriptions through Lago APIs
+
+
+## Show subscriptions on Askii
+Askii allow user to choose the subscription they want to use. To do that, we need to show all user subscriptions to UI and let users choose one of them. By default, we will choose the latest subscription as auto select option.
+
+- Askii FE get subscription list from Askii BE
+- Askii BE query the list from Lago
+- User choose a subscription or let system auto select
+- Update the subscription if changed.
+- Askii FE create a query, system will include the selected subscription-id to LiteLLM into the request header `X-OpenWebUI-User-Subscription`
+- LiteLLM will start query and sent the usage event to Lago with the selected subscription-id
+
+
+Optimization: choose the subscription with greater remaining balance
+
