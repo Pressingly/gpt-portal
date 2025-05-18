@@ -38,6 +38,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -80,6 +81,7 @@ from open_webui.routers import (
     users,
     utils,
     user_stats,
+    query_history,
 )
 
 from open_webui.routers.retrieval import (
@@ -977,6 +979,7 @@ app.include_router(
 )
 app.include_router(utils.router, prefix="/api/v1/utils", tags=["utils"])
 app.include_router(user_stats.router, prefix="/api/v1/user_stats", tags=["user_stats"])
+app.include_router(query_history.router, prefix="/api/v1/query_history", tags=["query_history"])
 
 
 try:
