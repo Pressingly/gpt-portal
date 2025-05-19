@@ -41,7 +41,7 @@ services:
       - 'STOREFRONT_TOKEN_KEY=_medusa_jwe'
       - 'LAGO_API_URL=https://gpt-portal-lagoapi.sandbox.pressingly.net/api/v1'
       - 'LAGO_API_KEY=3d8aaaa1-1ae8-4bc0-94fe-0a952adb3c18'
-      - 'LAGO_TRIAL_PLAN_CODE=starter'
+      - 'LAGO_TRIAL_PLAN_CODE=Starter'
       - 'STOREFRONT_EMBED_HEIGHT=600'
       - 'ENABLE_LOGIN_FORM=false'
       - 'ENABLE_OAUTH_SIGNUP=true'
