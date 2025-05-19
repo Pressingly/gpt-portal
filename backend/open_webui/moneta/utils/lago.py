@@ -1,12 +1,33 @@
 import os
 import requests
 import logging
+import hashlib
+import time
 
 LAGO_API_URL = os.environ.get("LAGO_API_URL")
 LAGO_API_KEY = os.environ.get("LAGO_API_KEY")
 LAGO_TRIAL_PLAN_CODE = os.environ.get("LAGO_TRIAL_PLAN_CODE")
 
 logger = logging.getLogger(__name__)
+
+def generate_idempotency_key(plan_id, region_id):
+    """
+    Generate an idempotency key for Lago API requests.
+
+    Args:
+        plan_id (str): The plan ID
+        region_id (str): The region ID
+
+    Returns:
+        str: A 32-character idempotency key
+    """
+    timestamp = int(time.time() * 1000)  # Current timestamp in milliseconds
+    deterministic_id = f"{plan_id}_{region_id}_{timestamp}"
+    hash_obj = hashlib.sha256(deterministic_id.encode())
+    hash_hex = hash_obj.hexdigest()
+    idempotency_key = hash_hex[:32]  # Use first 32 chars of hash
+
+    return idempotency_key
 
 def upsert_customer(user_external_id, user_data):
     """
@@ -51,7 +72,9 @@ def upsert_customer(user_external_id, user_data):
 
         # Auto-subscribe the user to the trial plan
         try:
-            subscription = create_subscription(user_external_id)
+            # Get the region from user_data or default to "US"
+            region = user_data.get("region", "US")
+            subscription = create_subscription(user_external_id, region)
             if subscription:
                 logger.info(f"User {user_external_id} auto-subscribed to plan {LAGO_TRIAL_PLAN_CODE}.")
             else:
@@ -80,11 +103,18 @@ def upsert_customer(user_external_id, user_data):
         raise e
 
 
-def create_subscription(user_external_id):
+def create_subscription(user_external_id, region_id="US"):
     """
     Creates a subscription in Lago for the specified user.
     Uses the plan code defined in the LAGO_TRIAL_PLAN_CODE environment variable.
     # https://getlago.com/docs/api-reference/subscriptions/create
+
+    Args:
+        user_external_id (str): The external ID of the user
+        region_id (str, optional): The region ID for idempotency key generation. Defaults to "US".
+
+    Returns:
+        dict or None: The subscription data if successful, None otherwise
     """
     if not LAGO_API_KEY:
         logger.error("LAGO_API_KEY environment variable not set.")
@@ -95,17 +125,22 @@ def create_subscription(user_external_id):
         return None
 
     api_endpoint = f"{LAGO_API_URL}/subscriptions"
+
+    # Generate an idempotency key to prevent duplicate subscriptions
+    idempotency_key = generate_idempotency_key(LAGO_TRIAL_PLAN_CODE, region_id)
+
     headers = {
         "Authorization": f"Bearer {LAGO_API_KEY}",
         "Content-Type": "application/json",
+        "Idempotency-Key": idempotency_key
     }
 
     # Construct the payload for creating a subscription
     payload = {
         "subscription": {
-            "external_customer_id": str(user_external_id),
-            "plan_code": LAGO_TRIAL_PLAN_CODE,
-            "billing_time": "anniversary"  # Use anniversary billing to start from signup date
+            "external_id": str(user_external_id),
+            "plan_id": LAGO_TRIAL_PLAN_CODE,
+            "region_id": region_id,
         }
     }
 
