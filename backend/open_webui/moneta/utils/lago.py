@@ -138,11 +138,13 @@ def create_subscription(user_external_id, region_id="US"):
     # Construct the payload for creating a subscription
     payload = {
         "subscription": {
-            "external_id": str(user_external_id),
-            "plan_id": LAGO_TRIAL_PLAN_CODE,
-            "region_id": region_id,
+            "external_customer_id": str(user_external_id),
+            "plan_code": LAGO_TRIAL_PLAN_CODE,
+            "external_id": idempotency_key,
+            
         }
     }
+    logger.info(f"Start creating subscription for user {user_external_id} with plan {LAGO_TRIAL_PLAN_CODE} and idempotency key {idempotency_key}.")
 
     try:
         response = requests.post(api_endpoint, headers=headers, json=payload, timeout=10)
