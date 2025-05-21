@@ -43,7 +43,7 @@ services:
       - 'LAGO_API_KEY=3d8aaaa1-1ae8-4bc0-94fe-0a952adb3c18'
       - 'LAGO_TRIAL_PLAN_CODE=starter'
       - 'STOREFRONT_EMBED_HEIGHT=600'
-      - 'ENABLE_LOGIN_FORM=false'
+      - 'ENABLE_LOGIN_FORM=true'
       - 'ENABLE_OAUTH_SIGNUP=true'
       - 'OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true'
       - 'OAUTH_CLIENT_ID=6STtqtHPvAWbyWEQeIymU5Ct7uoYNpK1UzIM7Y6EAvQ'
