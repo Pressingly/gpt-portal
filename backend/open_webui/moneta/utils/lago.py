@@ -1,12 +1,74 @@
 import os
 import requests
 import logging
+from typing import Dict, List, Optional, Any, Union
 
 LAGO_API_URL = os.environ.get("LAGO_API_URL")
 LAGO_API_KEY = os.environ.get("LAGO_API_KEY")
 LAGO_TRIAL_PLAN_CODE = os.environ.get("LAGO_TRIAL_PLAN_CODE")
 
 logger = logging.getLogger(__name__)
+
+def _make_lago_request(endpoint: str, method: str = "GET", payload: Optional[Dict] = None, timeout: int = 10) -> Dict:
+    """
+    Helper function to make requests to the Lago API.
+
+    Args:
+        endpoint: The API endpoint (without the base URL)
+        method: HTTP method (GET, POST, DELETE, etc.)
+        payload: Request payload for POST/PUT requests
+        timeout: Request timeout in seconds
+
+    Returns:
+        The JSON response from the API
+
+    Raises:
+        ValueError: If Lago API key is not configured
+        Exception: If the API request fails
+    """
+    if not LAGO_API_KEY:
+        logger.error("LAGO_API_KEY environment variable not set.")
+        raise ValueError("Lago API key is not configured.")
+
+    if not LAGO_API_URL:
+        logger.error("LAGO_API_URL environment variable not set.")
+        raise ValueError("Lago API URL is not configured.")
+
+    url = f"{LAGO_API_URL}{endpoint}"
+    headers = {
+        "Authorization": f"Bearer {LAGO_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        if method == "GET":
+            response = requests.get(url, headers=headers, timeout=timeout)
+        elif method == "POST":
+            response = requests.post(url, headers=headers, json=payload, timeout=timeout)
+        elif method == "DELETE":
+            response = requests.delete(url, headers=headers, timeout=timeout)
+        else:
+            raise ValueError(f"Unsupported HTTP method: {method}")
+
+        response.raise_for_status()
+        return response.json()
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error calling Lago API ({method} {endpoint}): {e}")
+        if e.response is not None:
+            try:
+                error_details = e.response.json()
+                logger.error(f"Lago API Error details: {error_details}")
+                raise Exception(f"Lago API error: {error_details}") from e
+            except ValueError:  # If response is not JSON
+                logger.error(f"Lago API Error response text: {e.response.text}")
+                raise Exception(f"Lago API error: {e.response.status_code} - {e.response.text}") from e
+        else:
+            raise Exception(f"Lago API request failed: {e}") from e
+
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during Lago API request ({method} {endpoint}): {e}")
+        raise e
 
 def upsert_customer(user_external_id, user_data):
     """
@@ -134,3 +196,91 @@ def create_subscription(user_external_id):
     except Exception as e:
         logger.error(f"An unexpected error occurred during Lago subscription creation for {user_external_id}: {e}")
         return None
+
+
+def fetch_all_plans() -> Dict:
+    """
+    Fetches all available plans from Lago.
+
+    Returns:
+        Dictionary containing the list of plans
+    """
+    logger.info("Fetching all plans from Lago")
+    return _make_lago_request("/plans")
+
+
+def fetch_plan_by_code(plan_code: str) -> Dict:
+    """
+    Fetches a specific plan by its code.
+
+    Args:
+        plan_code: The code of the plan to fetch
+
+    Returns:
+        Dictionary containing the plan details
+    """
+    logger.info(f"Fetching plan with code {plan_code} from Lago")
+    return _make_lago_request(f"/plans/{plan_code}")
+
+
+def fetch_user_subscriptions(user_external_id: str) -> Dict:
+    """
+    Fetches all subscriptions for a specific user.
+
+    Args:
+        user_external_id: The external ID of the user
+
+    Returns:
+        Dictionary containing the list of subscriptions
+    """
+    logger.info(f"Fetching subscriptions for user {user_external_id} from Lago")
+    return _make_lago_request(f"/subscriptions?external_customer_id={user_external_id}")
+
+
+def cancel_subscription(subscription_id: str, status: Optional[str] = None) -> Dict:
+    """
+    Cancels a subscription.
+
+    Args:
+        subscription_id: The ID of the subscription to cancel
+        status: Optional status parameter
+
+    Returns:
+        Dictionary containing the result of the operation
+    """
+    logger.info(f"Canceling subscription {subscription_id} in Lago")
+    endpoint = f"/subscriptions/{subscription_id}"
+    if status:
+        endpoint += f"?status={status}"
+    return _make_lago_request(endpoint, method="DELETE")
+
+
+def fetch_current_usage(user_external_id: str, subscription_id: str) -> Dict:
+    """
+    Fetches the current usage for a specific subscription.
+
+    Args:
+        user_external_id: The external ID of the user
+        subscription_id: The ID of the subscription
+
+    Returns:
+        Dictionary containing the usage details
+    """
+    logger.info(f"Fetching current usage for subscription {subscription_id} (user {user_external_id}) from Lago")
+    return _make_lago_request(
+        f"/customers/{user_external_id}/current_usage?external_subscription_id={subscription_id}"
+    )
+
+
+def fetch_customer_invoices(user_external_id: str) -> Dict:
+    """
+    Fetches all invoices for a specific customer.
+
+    Args:
+        user_external_id: The external ID of the user
+
+    Returns:
+        Dictionary containing the list of invoices
+    """
+    logger.info(f"Fetching invoices for user {user_external_id} from Lago")
+    return _make_lago_request(f"/customers/{user_external_id}/invoices")

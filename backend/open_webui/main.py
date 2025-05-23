@@ -55,6 +55,7 @@ from open_webui.socket.main import (
 )
 
 from open_webui.moneta.routers import hooks as moneta_hooks_router
+from open_webui.moneta.routers import lago as moneta_lago_router
 from open_webui.moneta.utils.storefront import HAS_STOREFRONT, STOREFRONT_URL, storefront_redirect_url
 import os
 
@@ -945,6 +946,7 @@ app.add_middleware(
 app.mount("/ws", socket_app)
 
 app.include_router(moneta_hooks_router.router, prefix="/moneta", tags=["moneta"])
+app.include_router(moneta_lago_router.router, prefix="/api/v1/lago", tags=["lago"])
 
 app.include_router(ollama.router, prefix="/ollama", tags=["ollama"])
 app.include_router(openai.router, prefix="/openai", tags=["openai"])
