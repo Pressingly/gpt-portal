@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Usage Analytics Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .dashboard-section { margin-bottom: 2rem; }
+        .chart-container { position: relative; height: 320px; }
+        .pie-container { height: 220px; }
+        .bar-container { height: 180px; }
+    </style>
+</head>
+<body>
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Usage Analytics <small class="text-muted" id="date-range"></small></h2>
+        <a href="/" class="btn btn-outline-primary">Back to Logs</a>
+    </div>
+    <div class="dashboard-section" style="margin-left: -24px; margin-right: -24px;">
+        <div class="card border-0" style="border-radius:0;">
+            <div class="card-body p-0">
+                <h5 class="card-title ps-3 pt-3">Queries per LLM Over Time (Day)</h5>
+                <div class="chart-container" style="width:100vw; min-width:100%;">
+                    <canvas id="llmLineChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row dashboard-section">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6>Multi-LLM Query Distribution</h6>
+                    <div class="pie-container">
+                        <canvas id="multiLLMPie"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6>LLM Usage Breakdown</h6>
+                    <div class="pie-container">
+                        <canvas id="llmBreakdownPie"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="dashboard-section" style="margin-left: -24px; margin-right: -24px;">
+        <div class="card border-0" style="border-radius:0;">
+            <div class="card-body p-0">
+                <h6 class="card-title ps-3 pt-3">Popular LLM Combinations</h6>
+                <div class="bar-container" style="width:100vw; min-width:100%;">
+                    <canvas id="llmComboBar"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="dashboard-section" style="margin-left: -24px; margin-right: -24px;">
+        <div class="card border-0" style="border-radius:0;">
+            <div class="card-body p-0">
+                <h6 class="card-title ps-3 pt-3">Daily Queries (Last 7 Days)</h6>
+                <div class="bar-container" style="width:100vw; min-width:100%;">
+                    <canvas id="dailyQueriesBar"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+const today = new Date();
+const endDate = today.toISOString().slice(0,10);
+const startDate = new Date(today.getTime() - 6*24*60*60*1000).toISOString().slice(0,10);
+document.getElementById('date-range').textContent = `(${startDate} to ${endDate})`;
+
+async function fetchData(url) {
+    const res = await fetch(url + `?start=${startDate}&end=${endDate}`);
+    return res.json();
+}
+
+async function renderDashboard() {
+    // 1. Line Chart: Queries per LLM Over Time
+    const llmData = await fetchData('/api/llm-queries-over-time');
+    const labels = llmData.map(d => d.day);
+    const claude = llmData.map(d => d.Claude);
+    const chatgpt = llmData.map(d => d.ChatGPT);
+    const gemini = llmData.map(d => d.Gemini);
+    const total = llmData.map(d => d.Total);
+    new Chart(document.getElementById('llmLineChart'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                { label: 'Claude', data: claude, borderColor: '#3b82f6', fill: false },
+                { label: 'ChatGPT', data: chatgpt, borderColor: '#22c55e', fill: false },
+                { label: 'Gemini', data: gemini, borderColor: '#f59e42', fill: false },
+                { label: 'Total', data: total, borderColor: '#ef4444', borderDash: [5,5], fill: false }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'top' } },
+            layout: { padding: { left: 0, right: 0 } },
+            scales: { x: { beginAtZero: true }, y: { beginAtZero: true } }
+        }
+    });
+
+    // 2. Pie: Multi-LLM Query Distribution
+    const dist = await fetchData('/api/llm-distribution');
+    new Chart(document.getElementById('multiLLMPie'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Multi-LLM', 'Single LLM'],
+            datasets: [{ data: [dist.multi_llm, dist.single_llm], backgroundColor: ['#22c55e', '#e5e7eb'] }]
+        },
+        options: { plugins: { legend: { position: 'bottom' } } }
+    });
+
+    // 3. Pie: LLM Usage Breakdown
+    const breakdown = await fetchData('/api/llm-breakdown');
+    new Chart(document.getElementById('llmBreakdownPie'), {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(breakdown),
+            datasets: [{ data: Object.values(breakdown), backgroundColor: ['#3b82f6', '#22c55e', '#f59e42'] }]
+        },
+        options: { plugins: { legend: { position: 'bottom' } } }
+    });
+
+    // 4. Bar: Popular LLM Combinations
+    const combos = await fetchData('/api/llm-combinations');
+    new Chart(document.getElementById('llmComboBar'), {
+        type: 'bar',
+        data: {
+            labels: combos.map(c => c.combination),
+            datasets: [{ label: 'Count', data: combos.map(c => c.count), backgroundColor: '#f59e42' }]
+        },
+        options: { indexAxis: 'y', plugins: { legend: { display: false } }, responsive: true, maintainAspectRatio: false }
+    });
+
+    // 5. Bar: Daily Queries (Last 7 Days)
+    const llmData2 = await fetchData('/api/llm-queries-over-time');
+    new Chart(document.getElementById('dailyQueriesBar'), {
+        type: 'bar',
+        data: {
+            labels: llmData2.map(d => d.day),
+            datasets: [{ label: 'Total Queries', data: llmData2.map(d => d.Total), backgroundColor: '#f59e42' }]
+        },
+        options: { plugins: { legend: { display: false } }, responsive: true, maintainAspectRatio: false }
+    });
+}
+renderDashboard();
+</script>
+</body>
+</html> 

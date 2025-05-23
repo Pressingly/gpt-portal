@@ -82,6 +82,7 @@ from open_webui.routers import (
     utils,
     user_stats,
     query_history,
+    usage_dashboard,
 )
 
 from open_webui.routers.retrieval import (
@@ -980,6 +981,7 @@ app.include_router(
 app.include_router(utils.router, prefix="/api/v1/utils", tags=["utils"])
 app.include_router(user_stats.router, prefix="/api/v1/user_stats", tags=["user_stats"])
 app.include_router(query_history.router, prefix="/api/v1/query_history", tags=["query_history"])
+app.include_router(usage_dashboard.router, prefix="/api/v1/usage_dashboard", tags=["usage_dashboard"])
 
 
 try:
@@ -1139,6 +1141,7 @@ async def chat_completion(
         form_data["metadata"] = metadata
 
         form_data["user"] = str(user.id)
+        form_data["messages"] = form_data.get("messages", [])
 
         form_data, metadata, events = await process_chat_payload(
             request, form_data, user, metadata, model

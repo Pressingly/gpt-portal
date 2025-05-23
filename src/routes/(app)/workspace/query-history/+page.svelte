@@ -114,7 +114,11 @@
       remainingBalance = `Remaining Balance: $${balanceInDollars.toFixed(2)}`;
     } catch (error) {
       console.error('Error in fetchRemainingBalance:', error);
-      remainingBalance = "Error fetching balance";
+      if (error instanceof Error && error.message === "No subscription found") {
+        remainingBalance = "No subscription found";
+      } else {
+        remainingBalance = "Error fetching balance";
+      }
     }
   }
 

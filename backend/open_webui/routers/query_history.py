@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
 from pydantic import BaseModel
 from open_webui.utils.auth import get_verified_user
-from open_webui.moneta.ledger.db_connection import get_db_connection
+from open_webui.moneta.ledger.db_connection import get_db_connection, release_connection
 from math import ceil
 from datetime import timezone
 
@@ -31,9 +31,10 @@ async def get_query_history(
     page_size: int = 8,
     user=Depends(get_verified_user)
 ):
+    conn = None
     try:
         print(f"Fetching query history for user: {user.id}")
-        conn, tunnel = get_db_connection()
+        conn = get_db_connection()
         cur = conn.cursor()
         
         # First, let's check what end_user values exist in the database
@@ -141,9 +142,6 @@ async def get_query_history(
             items.append(QueryHistoryItem(**row_dict))
         
         cur.close()
-        conn.close()
-        if tunnel:
-            tunnel.stop()
         
         return QueryHistoryResponse(
             items=items,
@@ -156,4 +154,7 @@ async def get_query_history(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
-        ) 
+        )
+    finally:
+        if conn:
+            release_connection(conn) 
