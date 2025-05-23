@@ -1,11 +1,33 @@
 import os
 import requests
 import logging
+import hashlib
+import time
 
 LAGO_API_URL = os.environ.get("LAGO_API_URL")
 LAGO_API_KEY = os.environ.get("LAGO_API_KEY")
+LAGO_TRIAL_PLAN_CODE = os.environ.get("LAGO_TRIAL_PLAN_CODE")
 
 logger = logging.getLogger(__name__)
+
+def generate_idempotency_key(plan_id, region_id):
+    """
+    Generate an idempotency key for Lago API requests.
+
+    Args:
+        plan_id (str): The plan ID
+        region_id (str): The region ID
+
+    Returns:
+        str: A 32-character idempotency key
+    """
+    timestamp = int(time.time() * 1000)  # Current timestamp in milliseconds
+    deterministic_id = f"{plan_id}_{region_id}_{timestamp}"
+    hash_obj = hashlib.sha256(deterministic_id.encode())
+    hash_hex = hash_obj.hexdigest()
+    idempotency_key = hash_hex[:32]  # Use first 32 chars of hash
+
+    return idempotency_key
 
 def upsert_customer(user_external_id, user_data):
     """
@@ -46,7 +68,22 @@ def upsert_customer(user_external_id, user_data):
         response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
 
         logger.info(f"Successfully upserted customer {user_external_id} to Lago.")
-        return response.json().get("customer")
+        customer = response.json().get("customer")
+
+        # Auto-subscribe the user to the trial plan
+        try:
+            # Get the region from user_data or default to "US"
+            region = user_data.get("region", "US")
+            subscription = create_subscription(user_external_id, region)
+            if subscription:
+                logger.info(f"User {user_external_id} auto-subscribed to plan {LAGO_TRIAL_PLAN_CODE}.")
+            else:
+                logger.warning(f"Failed to auto-subscribe user {user_external_id} to plan.")
+        except Exception as e:
+            # Log the error but don't prevent the user from being created
+            logger.error(f"Error auto-subscribing user {user_external_id} to plan: {e}")
+
+        return customer
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Error calling Lago API to upsert customer {user_external_id}: {e}")
@@ -64,3 +101,73 @@ def upsert_customer(user_external_id, user_data):
     except Exception as e:
         logger.error(f"An unexpected error occurred during Lago customer upsert for {user_external_id}: {e}")
         raise e
+
+
+def create_subscription(user_external_id, region_id="US"):
+    """
+    Creates a subscription in Lago for the specified user.
+    Uses the plan code defined in the LAGO_TRIAL_PLAN_CODE environment variable.
+    # https://getlago.com/docs/api-reference/subscriptions/create
+
+    Args:
+        user_external_id (str): The external ID of the user
+        region_id (str, optional): The region ID for idempotency key generation. Defaults to "US".
+
+    Returns:
+        dict or None: The subscription data if successful, None otherwise
+    """
+    if not LAGO_API_KEY:
+        logger.error("LAGO_API_KEY environment variable not set.")
+        raise ValueError("Lago API key is not configured.")
+
+    if not LAGO_TRIAL_PLAN_CODE:
+        logger.warning(f"LAGO_TRIAL_PLAN_CODE environment variable not set. Skipping subscription creation for user {user_external_id}.")
+        return None
+
+    api_endpoint = f"{LAGO_API_URL}/subscriptions"
+
+    # Generate an idempotency key to prevent duplicate subscriptions
+    idempotency_key = generate_idempotency_key(LAGO_TRIAL_PLAN_CODE, region_id)
+
+    headers = {
+        "Authorization": f"Bearer {LAGO_API_KEY}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotency_key
+    }
+
+    # Construct the payload for creating a subscription
+    payload = {
+        "subscription": {
+            "external_customer_id": str(user_external_id),
+            "plan_code": LAGO_TRIAL_PLAN_CODE,
+            "external_id": idempotency_key,
+            
+        }
+    }
+    logger.info(f"Start creating subscription for user {user_external_id} with plan {LAGO_TRIAL_PLAN_CODE} and idempotency key {idempotency_key}.")
+
+    try:
+        response = requests.post(api_endpoint, headers=headers, json=payload, timeout=10)
+        response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+
+        logger.info(f"Successfully created subscription for user {user_external_id} with plan {LAGO_TRIAL_PLAN_CODE}.")
+        return response.json().get("subscription")
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error calling Lago API to create subscription for user {user_external_id}: {e}")
+        if e.response is not None:
+            try:
+                error_details = e.response.json()
+                logger.error(f"Lago API Error details: {error_details}")
+                # Don't raise exception here to prevent blocking user signup if subscription creation fails
+                return None
+            except ValueError:  # If response is not JSON
+                logger.error(f"Lago API Error response text: {e.response.text}")
+                return None
+        else:
+            logger.error(f"Lago API request failed: {e}")
+            return None
+
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during Lago subscription creation for {user_external_id}: {e}")
+        return None

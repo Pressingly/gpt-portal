@@ -1,28 +1,16 @@
-from fastapi import APIRouter, Request, HTTPException, status, Depends
+from fastapi import APIRouter, Request, HTTPException, status, Depends, Response
 from pydantic import BaseModel, Field
 import logging
+import aiohttp
 from typing import Dict, Any, Optional
+
+# Import Lago utilities
+from open_webui.moneta.utils.lago import create_subscription
+# Import Storefront utilities
+from open_webui.moneta.utils.storefront import STOREFRONT_URL, save_storefront_token_to_cookies
 
 # Configure logging
 log = logging.getLogger(__name__)
-# You might want to set a specific log level, e.g., logging.INFO
-# logging.basicConfig(level=logging.INFO)
-
-
-# Placeholder for your Lago integration logic
-# Example:
-# from backend.open_webui.moneta.utils import lago_client
-# async def update_lago_customer(user_data: dict):
-#     try:
-#         # Replace with your actual Lago API call
-#         log.info(f"Updating Lago for user {user_data.get('email')}")
-#         # lago_client.create_or_update_customer(...)
-#         await asyncio.sleep(0.1) # Simulate async operation
-#         log.info(f"Successfully updated Lago for user {user_data.get('email')}")
-#     except Exception as e:
-#         log.error(f"Lago update failed for user {user_data.get('email')}: {e}")
-#         # Depending on requirements, you might want to raise an exception here
-#         # or implement retry logic
 
 
 # Define the structure of the user data within the webhook payload
@@ -65,11 +53,14 @@ async def moneta_webhook(payload: WebhookPayload, request: Request):
         log.info(f"Processing 'signup' event for user: {payload.user.email}")
 
         try:
-            # Placeholder for calling your Lago integration logic
-            # await update_lago_customer(payload.user.model_dump())
-            log.info(f"Placeholder: Lago processing for {payload.user.email} would execute here.")
-            # Simulate some async work if needed
-            # await asyncio.sleep(0.1)
+            # Call Lago integration to create subscription for the user
+            user_id = payload.user.id
+            subscription = create_subscription(user_id)
+
+            if subscription:
+                log.info(f"Successfully created subscription for user {payload.user.email} (ID: {user_id})")
+            else:
+                log.warning(f"Failed to create subscription for user {payload.user.email} (ID: {user_id})")
 
             return {"status": "accepted", "action": payload.action, "user_email": payload.user.email}
 

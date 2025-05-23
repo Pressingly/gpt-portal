@@ -55,6 +55,8 @@ from open_webui.socket.main import (
 )
 
 from open_webui.moneta.routers import hooks as moneta_hooks_router
+from open_webui.moneta.utils.storefront import HAS_STOREFRONT, STOREFRONT_URL, storefront_redirect_url
+import os
 
 from open_webui.routers import (
     audio,
@@ -1294,6 +1296,19 @@ async def get_app_config(request: Request):
                 for name, config in OAUTH_PROVIDERS.items()
             }
         },
+        # Add storefront configuration
+        **(
+            {
+                "moneta": {
+                    "storefront": {
+                        "enabled": HAS_STOREFRONT,
+                        "url": STOREFRONT_URL,
+                        "redirect_url": storefront_redirect_url()
+                    }
+                }
+            }
+            if HAS_STOREFRONT else {}
+        ),
         "features": {
             "auth": WEBUI_AUTH,
             "auth_trusted_header": bool(app.state.AUTH_TRUSTED_EMAIL_HEADER),

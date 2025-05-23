@@ -188,6 +188,38 @@
 
 			<hr class=" border-gray-100 dark:border-gray-850 my-1 p-0" />
 
+			{#if role !== 'admin'}
+				<a
+					class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+					href="/subscriptions"
+					on:click={() => {
+						show = false;
+
+						if ($mobile) {
+							showSidebar.set(false);
+						}
+					}}
+				>
+					<div class="self-center mr-3">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke-width="1.5"
+							stroke="currentColor"
+							class="w-5 h-5"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z"
+							/>
+						</svg>
+					</div>
+					<div class="self-center truncate">{$i18n.t('View Current Plan')}</div>
+				</a>
+			{/if}
+
 			<button
 				class="flex rounded-md py-2 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
 				on:click={async () => {
