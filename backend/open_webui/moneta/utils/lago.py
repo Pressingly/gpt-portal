@@ -3,6 +3,7 @@ import requests
 import logging
 import hashlib
 import time
+from typing import List, Dict, Any, Optional
 
 LAGO_API_URL = os.environ.get("LAGO_API_URL")
 LAGO_API_KEY = os.environ.get("LAGO_API_KEY")
@@ -28,6 +29,63 @@ def generate_idempotency_key(plan_id, region_id):
     idempotency_key = hash_hex[:32]  # Use first 32 chars of hash
 
     return idempotency_key
+
+
+def get_user_subscriptions(user_external_id: str) -> List[Dict[str, Any]]:
+    """
+    Retrieves all subscriptions for a user from Lago.
+
+    Args:
+        user_external_id (str): The external ID of the user
+
+    Returns:
+        List[Dict[str, Any]]: A list of subscription objects or empty list if none found or error
+    """
+    if not LAGO_API_KEY:
+        logger.error("LAGO_API_KEY environment variable not set.")
+        raise ValueError("Lago API key is not configured.")
+
+    api_endpoint = f"{LAGO_API_URL}/subscriptions"
+
+    # Add query parameters to filter by customer
+    params = {
+        "external_customer_id": str(user_external_id),
+        "page": 1,
+        "per_page": 100  # Set a high limit to get all subscriptions
+    }
+
+    headers = {
+        "Authorization": f"Bearer {LAGO_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        logger.info(f"Fetching subscriptions for user {user_external_id} from Lago API")
+        response = requests.get(api_endpoint, headers=headers, params=params, timeout=10)
+        response.raise_for_status()
+
+        subscriptions_data = response.json()
+        subscriptions = subscriptions_data.get("subscriptions", [])
+        logger.info(f"Found {len(subscriptions)} subscriptions for user {user_external_id}")
+
+        return subscriptions
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error calling Lago API to get subscriptions for user {user_external_id}: {e}")
+        if e.response is not None:
+            try:
+                error_details = e.response.json()
+                logger.error(f"Lago API Error details: {error_details}")
+            except ValueError:  # If response is not JSON
+                logger.error(f"Lago API Error response text: {e.response.text}")
+        else:
+            logger.error(f"Lago API request failed: {e}")
+
+        return []
+
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while fetching subscriptions for {user_external_id}: {e}")
+        return []
 
 def upsert_customer(user_external_id, user_data):
     """
@@ -107,6 +165,10 @@ def create_subscription(user_external_id, region_id="US"):
     """
     Creates a subscription in Lago for the specified user.
     Uses the plan code defined in the LAGO_TRIAL_PLAN_CODE environment variable.
+
+    Before creating a new trial subscription, checks if the user has ever had any subscription.
+    Only creates a new trial subscription if the user has never had any subscription before.
+
     # https://getlago.com/docs/api-reference/subscriptions/create
 
     Args:
@@ -122,6 +184,14 @@ def create_subscription(user_external_id, region_id="US"):
 
     if not LAGO_TRIAL_PLAN_CODE:
         logger.warning(f"LAGO_TRIAL_PLAN_CODE environment variable not set. Skipping subscription creation for user {user_external_id}.")
+        return None
+
+    # Check if the user already has any subscriptions (past or present)
+    existing_subscriptions = get_user_subscriptions(user_external_id)
+
+    # If the user has any subscriptions, don't create a new trial subscription
+    if existing_subscriptions:
+        logger.info(f"User {user_external_id} already has {len(existing_subscriptions)} subscription(s). Skipping trial subscription creation.")
         return None
 
     api_endpoint = f"{LAGO_API_URL}/subscriptions"
@@ -141,7 +211,7 @@ def create_subscription(user_external_id, region_id="US"):
             "external_customer_id": str(user_external_id),
             "plan_code": LAGO_TRIAL_PLAN_CODE,
             "external_id": idempotency_key,
-            
+
         }
     }
     logger.info(f"Start creating subscription for user {user_external_id} with plan {LAGO_TRIAL_PLAN_CODE} and idempotency key {idempotency_key}.")
