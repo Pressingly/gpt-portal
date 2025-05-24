@@ -9,9 +9,11 @@
   let loading = true;
   let error = '';
   let currentPage = 1;
-  let pageSize = 8;
+  let pageSize = 20;
   let totalPages = 1;
   let remainingBalance = 'Loading...';
+  let selectedPrompt = null; // For modal display
+  let showPromptModal = false; // Controls visibility of the prompt modal
 
   function formatTimestamp(timestamp: string): string {
     try {
@@ -122,14 +124,46 @@
     }
   }
 
+  function openPromptModal(prompt) {
+    selectedPrompt = prompt;
+    showPromptModal = true;
+  }
+
+  function closePromptModal() {
+    showPromptModal = false;
+  }
+
   onMount(() => {
     fetchHistory();
     fetchRemainingBalance();
   });
 </script>
 
-<h1 class="text-2xl font-bold mb-4">Query History</h1>
-<div class="text-lg font-semibold mb-4">{remainingBalance}</div>
+<!-- Modal for displaying full prompt -->
+{#if showPromptModal && selectedPrompt}
+  <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" on:click={closePromptModal}>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-3xl w-full max-h-[80vh] overflow-hidden" on:click|stopPropagation>
+      <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+        <h3 class="text-lg font-medium">Input Prompt</h3>
+        <button class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" on:click={closePromptModal}>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="p-4 overflow-y-auto max-h-[calc(80vh-8rem)]">
+        <p class="whitespace-pre-wrap">{selectedPrompt}</p>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<div class="flex justify-between items-center mb-4">
+  <div>
+    <h1 class="text-2xl font-bold">Query History</h1>
+    <div class="text-lg font-semibold mt-1">{remainingBalance}</div>
+  </div>
+</div>
 
 {#if loading}
   <div class="py-8 text-center text-gray-500">Loading...</div>
@@ -155,10 +189,19 @@
         {#each history as item}
           <tr class="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800">
             <td class="px-4 py-2 font-mono text-blue-600 dark:text-blue-400">#{item.query_id}</td>
-            <td class="px-4 py-2 font-mono">{formatTimestamp(item.timestamp)}</td>
+            <td class="px-4 py-2">{formatTimestamp(item.timestamp)}</td>
             <td class="px-4 py-2">{item.llm}</td>
-            <td class="px-4 py-2 max-w-xs truncate">
-              <span class="text-blue-600 underline" title={item.input_prompt}>{item.input_prompt}</span>
+            <td class="px-4 py-2 max-w-xs">
+              <div 
+                class="text-blue-600 hover:text-blue-800 cursor-pointer truncate hover:underline" 
+                on:click={() => openPromptModal(item.input_prompt)}
+              >
+                {#if item.input_prompt && item.input_prompt.length > 50}
+                  {item.input_prompt.substring(0, 50)}...
+                {:else}
+                  {item.input_prompt || 'No prompt available'}
+                {/if}
+              </div>
             </td>
             <td class="px-4 py-2">{item.input_tokens}</td>
             <td class="px-4 py-2">{item.input_cost}</td>

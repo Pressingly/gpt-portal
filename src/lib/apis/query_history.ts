@@ -10,6 +10,7 @@ export interface QueryHistoryItem {
   output_tokens: number;
   output_cost: string;
   total_cost: string;
+  metadata?: any;
 }
 
 export interface QueryHistoryResponse {
